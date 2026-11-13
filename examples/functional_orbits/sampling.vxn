@@ -1,0 +1,14 @@
+// Inverse 8x8 Bayer order: every phase refines one pixel in each 8x8 tile.
+// The 64 phases cover every position exactly once, with no noise in the result.
+pub safe pure hot wrap uint32 column(const wrap uint32 phase) =
+    (((phase ^ (phase >> 1)) & 1) << 2) |
+    ((((phase >> 2) ^ (phase >> 3)) & 1) << 1) |
+    (((phase >> 4) ^ (phase >> 5)) & 1);
+pub safe pure hot wrap uint32 row(const wrap uint32 phase) =
+    ((phase & 1) << 2) | (((phase >> 2) & 1) << 1) | ((phase >> 4) & 1);
+
+// Split each pass into 16 interleaved row groups. Bit reversal distributes
+// early work across the height instead of sweeping down from the top.
+pub safe pure hot wrap uint32 row_group(const wrap uint32 chunk) =
+    ((chunk & 1) << 3) | ((chunk & 2) << 1) |
+    ((chunk & 4) >> 1) | ((chunk & 8) >> 3);

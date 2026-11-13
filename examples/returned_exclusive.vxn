@@ -1,0 +1,31 @@
+struct Pair { uint32 first; uint32 second; }
+
+safe pure uniq mut uint32 second(const uniq mut Pair pair) from(pair) {
+    return uniq mut pair.second;
+}
+
+safe pure Slice[T] read[T: Move](const UniqSlice[T] values) from(values) {
+    return ref values;
+}
+
+safe io UniqSlice[T] suffix[T: Move](const UniqSlice[T] values,
+                                   const wrap uint32 start) from(values) {
+    const wrap uint32 count = len(values) - start;
+    return uniq_slice(values, start, count);
+}
+
+safe io void main() {
+    mut Pair pair = Pair { first=7, second=0 };
+    let const value = second(uniq mut pair);
+    value.* = 42;
+    output(pair.second);
+
+    mut uint32[3] numbers = { 1, 2, 3 };
+    let const parent = uniq_slice(uniq mut numbers);
+    let const tail = suffix(uniq mut parent, 1);
+    tail[0] = 42;
+    let const shared = read(uniq mut parent);
+    output(shared[1]);
+    parent[2] = 7;
+    output(numbers[2]);
+}

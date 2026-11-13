@@ -1,0 +1,31 @@
+// Echo binary lines, processing long lines in chunks of at most 4096 bytes.
+safe io void flush_chunk(const ref Vec[wrap uint8] bytes) {
+    match io_write(io_stdout(), vec_slice(bytes)) {
+        IoResult::Ok -> {},
+        IoResult::Error(_) -> panic()
+    }
+}
+
+safe io void main() {
+    mut Vec[wrap uint8] bytes = match vec_new[wrap uint8]() {
+        VecResult[wrap uint8]::Ok(const value) -> value,
+        VecResult[wrap uint8]::Err(_) -> panic()
+    };
+    while (true) {
+        match io_read_line(io_stdin(), uniq mut bytes, 4096) {
+            IoLine::Read(_) | IoLine::Error(IoLineError::Limit, _) -> {
+                flush_chunk(ref bytes);
+                vec_clear(uniq mut bytes);
+            },
+            IoLine::End -> { break; },
+            IoLine::Error(_, _) -> {
+                flush_chunk(ref bytes);
+                panic();
+            }
+        }
+    }
+    match io_flush(io_stdout()) {
+        IoResult::Ok -> {},
+        IoResult::Error(_) -> panic()
+    }
+}

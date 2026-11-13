@@ -1,0 +1,168 @@
+import common::{Complex};
+import cache;
+import renderer::{require_io};
+import navigation::{Set, View, State, Action, initial, camera, parameter, point, update};
+
+safe void gfx(const GfxResult result) {
+    match result { GfxResult::Ok -> {}, GfxResult::Error(_) -> { panic(); } }
+}
+safe float64 now() = match time_now() {
+    TimeRead::Seconds(const seconds) -> seconds, _ -> panic()
+};
+safe pure Set panel_at(const wrap sint32 x) = match x {
+    const n if n < 320 -> Set::Dragon,
+    const n if n < 640 -> Set::Dust,
+    _ -> Set::Islands
+};
+safe pure wrap sint32 left_edge(const Set set) = match set {
+    Set::Dragon -> 0, Set::Dust -> 320, Set::Islands -> 640
+};
+safe pure bool equal_set(const Set a, const Set b) = match a {
+    Set::Dragon -> match b { Set::Dragon -> true, _ -> false },
+    Set::Dust -> match b { Set::Dust -> true, _ -> false },
+    Set::Islands -> match b { Set::Islands -> true, _ -> false }
+};
+safe pure Color tab_color(const State state, const Set set) = match !state.gallery && equal_set(state.selected, set) {
+    true -> rgb(47, 187, 177), false -> rgb(34, 43, 64)
+};
+safe void chrome(const Canvas canvas, const State state) {
+    gfx(draw_rectangle(canvas, 0, 0, 960, 88, rgb(12, 17, 30)));
+    gfx(draw_text(canvas, 20, 15, 2, rgb(222, 235, 245), b"ORBIT GALLERY"));
+    gfx(draw_rectangle(canvas, 20, 47, 218, 28, tab_color(state, Set::Dragon)));
+    gfx(draw_rectangle(canvas, 254, 47, 218, 28, tab_color(state, Set::Dust)));
+    gfx(draw_rectangle(canvas, 488, 47, 218, 28, tab_color(state, Set::Islands)));
+    gfx(draw_rectangle(canvas, 722, 47, 218, 28, match state.gallery { true -> rgb(47,187,177), false -> rgb(34,43,64) }));
+    gfx(draw_text(canvas, 32, 57, 1, rgb(238,245,250), b"DRAGON"));
+    gfx(draw_text(canvas, 266, 57, 1, rgb(238,245,250), b"STARDUST"));
+    gfx(draw_text(canvas, 500, 57, 1, rgb(238,245,250), b"ISLANDS"));
+    gfx(draw_text(canvas, 734, 57, 1, rgb(238,245,250), b"ALL THREE"));
+}
+safe void progress(const Canvas canvas, const wrap uint32 phase) {
+    gfx(draw_rectangle(canvas, 20, 82, 920, 2, rgb(34,43,64)));
+    if (phase > 0 && phase < 64) {
+        gfx(draw_rectangle(canvas, 20, 82, phase * 920 / 64, 2, rgb(47,187,177)));
+    }
+}
+safe io void snapshot(const Canvas canvas) {
+    const IoFile file = match io_create(b"build/orbit-snapshot.ppm") {
+        IoOpen::Ok(const opened) -> opened, _ -> panic()
+    };
+    require_io(io_write(file, b"P6\n960 628\n255\n"));
+    for (mut wrap sint32 y = 0; y < 628; y++) {
+        for (mut wrap sint32 x = 0; x < 960; x++) {
+            const Color color = match canvas_read_pixel(canvas, x, y) {
+                PixelRead::Ok(const value) -> value, _ -> panic()
+            };
+            require_io(io_write(file, {color.r, color.g, color.b}));
+        }
+    }
+    require_io(io_close(file));
+}
+safe void play(const Window window) {
+    const Canvas canvas = match window_canvas(window) { CanvasOpen::Ok(const value) -> value, _ -> panic() };
+    mut State state = initial();
+    mut bool dirty = true;
+    mut cache::Cache images = cache::create();
+    mut bool dragging = false;
+    mut bool moved = false;
+    mut bool save = false;
+    mut wrap sint32 last_x = 0;
+    mut wrap sint32 last_y = 0;
+    mut Set drag_set = Set::Dragon;
+    while (true) {
+        const WindowFrame input = match window_poll(window) { FrameRead::Ok(const value) -> value, _ -> panic() };
+        if (input.should_close) { break; }
+        if (key_pressed(ref input, Key::S)) { save = true; }
+        const wrap sint32 x = input.mouse_x;
+        const wrap sint32 y = input.mouse_y;
+        const bool inside = x >= 0 && x < 960 && y >= 88 && y < 628;
+        const bool down = mouse_down(ref input, MouseButton::Left);
+        const bool pressed = mouse_pressed(ref input, MouseButton::Left);
+        mut bool selected = false;
+        if (key_pressed(ref input, Key::A)) { state = update(state, Action::Select(Set::Dragon)); selected = true; }
+        if (key_pressed(ref input, Key::B)) { state = update(state, Action::Select(Set::Dust)); selected = true; }
+        if (key_pressed(ref input, Key::C)) { state = update(state, Action::Select(Set::Islands)); selected = true; }
+        if (key_pressed(ref input, Key::G) || key_pressed(ref input, Key::Space)) { state = update(state, Action::Gallery); selected = true; }
+        if (pressed && y >= 47 && y < 75) {
+            if (x >= 20 && x < 238) { state = update(state, Action::Select(Set::Dragon)); selected = true; }
+            if (x >= 254 && x < 472) { state = update(state, Action::Select(Set::Dust)); selected = true; }
+            if (x >= 488 && x < 706) { state = update(state, Action::Select(Set::Islands)); selected = true; }
+            if (x >= 722 && x < 940) { state = update(state, Action::Gallery); selected = true; }
+        }
+        if (selected) { dragging = false; dirty = true; }
+        if (key_pressed(ref input, Key::R)) { state = update(state, Action::Reset); dragging = false; dirty = true; }
+        if (pressed && down && inside) {
+            dragging = true; moved = false; last_x = x; last_y = y;
+            drag_set = match state.gallery { true -> panel_at(x), false -> state.selected };
+        }
+        if (dragging && down) {
+            const wrap sint32 dx = x - last_x;
+            const wrap sint32 dy = y - last_y;
+            if (dx != 0 || dy != 0) {
+                const float64 divisor = match state.gallery { true -> 320.0, false -> 540.0 };
+                state = update(state, Action::Pan(drag_set, cast[float64](dx) / divisor, cast[float64](dy) / divisor));
+                last_x = x; last_y = y; moved = true; dirty = true;
+            }
+        }
+        if (dragging && !down) {
+            if (!moved && inside && state.gallery) { state = update(state, Action::Select(drag_set)); dirty = true; }
+            dragging = false;
+        }
+        // A complete click can arrive between polls. Pressed still records it.
+        if (pressed && !down && inside && state.gallery && !dragging) {
+            state = update(state, Action::Select(panel_at(x))); dirty = true;
+        }
+        if (inside && input.scroll != 0.0) {
+            const Set set = match state.gallery { true -> panel_at(x), false -> state.selected };
+            const float64 width = match state.gallery { true -> 320.0, false -> 960.0 };
+            const float64 left = match state.gallery { true -> cast[float64](left_edge(set)), false -> 0.0 };
+            const float64 divisor = match state.gallery { true -> 320.0, false -> 540.0 };
+            mut float64 wheel = input.scroll;
+            if (wheel > 8.0) { wheel = 8.0; }
+            if (wheel < -8.0) { wheel = -8.0; }
+            const float64 factor = match wheel > 0.0 { true -> 1.0 / (1.0 + wheel * 0.2), false -> 1.0 - wheel * 0.2 };
+            state = update(state, Action::Zoom(set, (cast[float64](x) - left - width * 0.5) / divisor,
+                (cast[float64](y) - 358.0) / divisor, factor));
+            dirty = true;
+        }
+        if (!state.gallery) {
+            mut float64 delta = input.delta_seconds;
+            if (delta > 0.05) { delta = 0.05; }
+            mut float64 dx = 0.0; mut float64 dy = 0.0;
+            if (key_down(ref input, Key::Left)) { dx += delta * 0.6; }
+            if (key_down(ref input, Key::Right)) { dx -= delta * 0.6; }
+            if (key_down(ref input, Key::Up)) { dy += delta * 0.6; }
+            if (key_down(ref input, Key::Down)) { dy -= delta * 0.6; }
+            if (dx != 0.0 || dy != 0.0) { state = update(state, Action::Pan(state.selected, dx, dy)); dirty = true; }
+            if (key_down(ref input, Key::Q)) { state = update(state, Action::Zoom(state.selected, 0.0, 0.0, 1.0 + delta)); dirty = true; }
+            if (key_down(ref input, Key::E)) { state = update(state, Action::Zoom(state.selected, 0.0, 0.0, 1.0 / (1.0 + delta))); dirty = true; }
+        }
+        if (dirty) {
+            cache::select(uniq mut images, canvas, state);
+            dirty = false;
+            chrome(canvas, state); progress(canvas, cache::phase(ref images));
+            gfx(window_present(window));
+        } else if (!cache::settled(ref images)) {
+            // Orbit continuations advance by at most 180 iterations per sample.
+            // Keep input responsive even after many background depth rounds.
+            const float64 started = now();
+            while (!cache::settled(ref images)) {
+                cache::refine(uniq mut images, canvas);
+                if (now() - started >= 0.008) { break; }
+            }
+            progress(canvas, cache::phase(ref images));
+            gfx(window_present(window));
+        }
+        if (save && cache::completed(ref images) >= 180) { snapshot(canvas); save = false; }
+        if (cache::settled(ref images)) {
+            match time_sleep(5) { TimeResult::Ok -> {}, _ -> panic() }
+        }
+    }
+    cache::close(ref images);
+}
+safe io void main() {
+    match window_open(960, 628, WindowMode::Visible, b"VXN Orbit Gallery") {
+        WindowOpen::Ok(const window) -> { play(window); gfx(window_close(window)); },
+        WindowOpen::Error(_) -> { panic(); }
+    }
+}

@@ -1,0 +1,11 @@
+/build/
+/dist/
+/install/
+/vxn test */
+*.exe
+*.obj
+*.o
+*.a
+*.lib
+*.pdb
+__pycache__/

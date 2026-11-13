@@ -1,0 +1,34 @@
+struct Entry { uint8 category; bool visible; }
+
+safe pure hot uint32 classify(const Entry entry) {
+    return match entry {
+        Entry { visible = false, category = _ } -> 0,
+        Entry { category = 0..=9, visible = true } -> 1,
+        Entry { category = 10..=255, visible = true } -> 2
+    };
+}
+
+safe pure hot bool accepted(const str text) {
+    return match text { "yes" | "y" -> true, _ -> false };
+}
+
+safe io void main() {
+    output(classify(Entry { category = 42, visible = true }));
+    output(accepted("y"));
+    match str_rfind("one two one", "one") {
+        TextSearch::Found(const offset) -> output(offset),
+        TextSearch::NotFound -> panic()
+    }
+    match string_from_str("caf\u{e9}") {
+        StringAlloc::Ok(mut text) -> {
+            output(str_scalar_len(string_view(ref text)));
+            match string_truncate(uniq mut text, 4) {
+                StringIndexResult::Err(TextIndexError::NotBoundary(const offset)) -> output(offset),
+                _ -> panic()
+            }
+            string_truncate(uniq mut text, 3);
+            output(str_equal(string_view(ref text), "caf"));
+        },
+        StringAlloc::Err(_) -> panic()
+    }
+}

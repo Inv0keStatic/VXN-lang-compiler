@@ -1,0 +1,83 @@
+import std.order as keys;
+
+// Sorted contiguous storage: logarithmic search, linear insertion/removal.
+pub struct Entry[K, V] { K key; V value; }
+pub struct Map[K, V] { Vec[Entry[K, V]] entries; }
+pub choice MapResult[K, V] { Ok(Map[K, V]), Err(AllocError) }
+pub choice Lookup { Found(wrap uint32), Missing }
+pub choice Insert[K, V] { Inserted, Occupied(Entry[K, V]), Allocation(AllocError, Entry[K, V]) }
+
+pub safe io nopanic MapResult[K, V] create[K: Move, V: Move]() =
+    match vec_new[Entry[K, V]]() {
+        VecResult[Entry[K, V]]::Ok(const entries) -> MapResult[K, V]::Ok(Map[K, V]{entries = entries}),
+        VecResult[Entry[K, V]]::Err(const error) -> MapResult[K, V]::Err(error)
+    };
+pub safe pure hot wrap uint32 size[K: Move, V: Move](const ref Map[K, V] map) = vec_len(ref map.entries);
+pub safe pure hot wrap uint32 capacity[K: Move, V: Move](const ref Map[K, V] map) = vec_capacity(ref map.entries);
+pub safe pure hot Slice[Entry[K, V]] view[K: Move, V: Move](const ref Map[K, V] map) from(map) = vec_slice(ref map.entries);
+pub safe io nopanic AllocResult reserve[K: Move, V: Move](const uniq mut Map[K, V] map, const wrap uint32 additional) = vec_reserve(uniq mut map.entries, additional);
+pub safe io nopanic void clear[K: Move, V: Move](const uniq mut Map[K, V] map) = vec_clear(uniq mut map.entries);
+
+// First index whose key is >= key; upper_bound instead finds > key.
+safe pure hot wrap uint32 bound[K: keys::Order, V: Move](const ref Map[K, V] map, const ref K key, const bool upper) {
+    const Slice[Entry[K, V]] entries = view(map);
+    mut wrap uint32 low = 0;
+    mut wrap uint32 high = len(entries);
+    while (low < high) {
+        const wrap uint32 mid = low + (high - low) / 2;
+        if (mid < len(entries)) {
+            const keys::Ordering ordering = keys::Order[K]::compare(ref entries[mid].key, key);
+            const bool before = match ordering {
+                keys::Ordering::Less -> true,
+                keys::Ordering::Equal -> upper,
+                keys::Ordering::Greater -> false
+            };
+            if (before) { low = mid + 1; } else { high = mid; }
+        } else { return high; }
+    }
+    return low;
+}
+pub safe pure hot wrap uint32 lower_bound[K: keys::Order, V: Move](const ref Map[K, V] map, const ref K key) = bound(map, key, false);
+pub safe pure hot wrap uint32 upper_bound[K: keys::Order, V: Move](const ref Map[K, V] map, const ref K key) = bound(map, key, true);
+
+pub safe pure hot Lookup find[K: keys::Order, V: Move](const ref Map[K, V] map, const ref K key) {
+    const wrap uint32 index = lower_bound(map, key);
+    const Slice[Entry[K, V]] entries = view(map);
+    if (index < len(entries)) {
+        match keys::Order[K]::compare(ref entries[index].key, key) {
+            keys::Ordering::Equal -> { return Lookup::Found(index); },
+            _ -> {}
+        }
+    }
+    return Lookup::Missing;
+}
+pub safe pure hot bool contains[K: keys::Order, V: Move](const ref Map[K, V] map, const ref K key) =
+    match find(map, key) { Lookup::Found(_) -> true, Lookup::Missing -> false };
+pub safe pure hot RefOption[V] get[K: keys::Order, V: Move](const ref Map[K, V] map, const ref K key) from(map) {
+    const wrap uint32 index = lower_bound(map, key);
+    const Slice[Entry[K, V]] entries = view(map);
+    if (index < len(entries)) {
+        match keys::Order[K]::compare(ref entries[index].key, key) {
+            keys::Ordering::Equal -> { return RefOption[V]::Some(ref entries[index].value); },
+            _ -> {}
+        }
+    }
+    return RefOption[V]::None;
+}
+pub safe io Insert[K, V] insert[K: keys::Order, V: Move](const uniq mut Map[K, V] map, const K key, const V value) {
+    if (contains(ref map.*, ref key)) { return Insert[K, V]::Occupied(Entry[K, V]{key = key, value = value}); }
+    const wrap uint32 index = lower_bound(ref map.*, ref key);
+    const Entry[K, V] entry = Entry[K, V]{key = key, value = value};
+    return match vec_insert(uniq mut map.entries, index, entry) {
+        VecInsert[Entry[K, V]]::Ok -> Insert[K, V]::Inserted,
+        VecInsert[Entry[K, V]]::Allocation(const error, const returned) -> Insert[K, V]::Allocation(error, returned),
+        VecInsert[Entry[K, V]]::OutOfBounds(_) -> panic()
+    };
+}
+pub safe io VecPop[Entry[K, V]] remove[K: keys::Order, V: Move](const uniq mut Map[K, V] map, const ref K key) =
+    match find(ref map.*, key) {
+        Lookup::Found(const index) -> vec_remove(uniq mut map.entries, index),
+        Lookup::Missing -> VecPop[Entry[K, V]]::Empty
+    };
+pub safe io nopanic VecPop[Entry[K, V]] pop_first[K: Move, V: Move](const uniq mut Map[K, V] map) = vec_remove(uniq mut map.entries, 0);
+pub safe io nopanic VecPop[Entry[K, V]] pop_last[K: Move, V: Move](const uniq mut Map[K, V] map) = vec_pop(uniq mut map.entries);

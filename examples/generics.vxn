@@ -1,0 +1,32 @@
+constraint Add[T] {
+    safe pure T operator +(const T a, const T b);
+}
+
+struct Vec2 {
+    float64 x;
+    float64 y;
+}
+
+impl Add[Vec2] {
+    safe pure Vec2 operator +(const Vec2 a, const Vec2 b) {
+        return Vec2 { x = a.x + b.x, y = a.y + b.y };
+    }
+}
+
+safe pure T combine[T: Add](const T a, const T b) {
+    return a + b;
+}
+
+safe pure T twice[T: Add](const T value) {
+    return combine[T](value, value);
+}
+
+safe io nopanic void main() {
+    const Vec2 a = Vec2 { x = 3.0, y = 4.0 };
+    const Vec2 b = twice[Vec2](a);
+    output(b.x);
+    output(b.y);
+    const Vec2 c = a + b;
+    output(c.x);
+    output(c.y);
+}

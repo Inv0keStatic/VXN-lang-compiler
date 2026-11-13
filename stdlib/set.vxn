@@ -1,0 +1,47 @@
+import std.equal as keys;
+
+// Insertion-ordered unique values in contiguous storage; lookup is linear.
+pub struct Set[T] { Vec[T] values; }
+pub choice SetResult[T] { Ok(Set[T]), Err(AllocError) }
+pub choice Insert[T] { Inserted, Present(T), Allocation(AllocError, T) }
+choice Lookup { Found(wrap uint32), Missing }
+
+pub safe io nopanic SetResult[T] create[T: Move]() {
+    return match vec_new[T]() {
+        VecResult[T]::Ok(const values) -> SetResult[T]::Ok(Set[T] { values = values }),
+        VecResult[T]::Err(const error) -> SetResult[T]::Err(error)
+    };
+}
+pub safe pure hot wrap uint32 size[T: Move](const ref Set[T] set) = vec_len(ref set.values);
+pub safe pure hot wrap uint32 capacity[T: Move](const ref Set[T] set) = vec_capacity(ref set.values);
+pub safe pure hot Slice[T] view[T: Move](const ref Set[T] set) from(set) = vec_slice(ref set.values);
+pub safe io nopanic AllocResult reserve[T: Move](const uniq mut Set[T] set, const wrap uint32 additional) =
+    vec_reserve(uniq mut set.values, additional);
+pub safe io nopanic void clear[T: Move](const uniq mut Set[T] set) = vec_clear(uniq mut set.values);
+
+safe pure hot Lookup find[T: keys::Equal](const ref Set[T] set, const ref T value) {
+    const Slice[T] values = view(set);
+    for (mut wrap uint32 i = 0; i < len(values); i++) {
+        if (keys::Equal[T]::equal(ref values[i], value)) { return Lookup::Found(i); }
+    }
+    return Lookup::Missing;
+}
+pub safe pure hot bool contains[T: keys::Equal](const ref Set[T] set, const ref T value) =
+    match find(set, value) { Lookup::Found(_) -> true, Lookup::Missing -> false };
+
+pub safe io Insert[T] insert[T: keys::Equal](const uniq mut Set[T] set, const T value) {
+    if (contains(ref set.*, ref value)) { return Insert[T]::Present(value); }
+    const wrap uint32 index = size(ref set.*);
+    return match vec_insert(uniq mut set.values, index, value) {
+        VecInsert[T]::Ok -> Insert[T]::Inserted,
+        VecInsert[T]::Allocation(const error, const returned) -> Insert[T]::Allocation(error, returned),
+        VecInsert[T]::OutOfBounds(_) -> panic()
+    };
+}
+
+pub safe io VecPop[T] remove[T: keys::Equal](const uniq mut Set[T] set, const ref T value) {
+    return match find(ref set.*, value) {
+        Lookup::Found(const index) -> vec_remove(uniq mut set.values, index),
+        Lookup::Missing -> VecPop[T]::Empty
+    };
+}

@@ -1,0 +1,26 @@
+// The body is checked once against this bound, before any specialization.
+safe nopanic BoxResult[DynFn[safe pure fn()->uint32]] erase[
+    F: Move & safe pure fn()->uint32
+](const F callback) {
+    return box_fn[safe pure fn()->uint32](callback);
+}
+
+safe io void main() {
+    match box_new[uint32](42) {
+        BoxResult[uint32]::Ok(const value) -> {
+            let const read = fn()->uint32 { return box_ref(ref value).*; };
+            match erase(read) {
+                BoxResult[DynFn[safe pure fn()->uint32]]::Ok(const first) -> {
+                    output(first());
+                    // Already boxed: transfer the allocation, without allocating again.
+                    match erase(first) {
+                        BoxResult[DynFn[safe pure fn()->uint32]]::Ok(const second) -> output(second()),
+                        BoxResult[DynFn[safe pure fn()->uint32]]::Err(const error) -> output(999)
+                    }
+                },
+                BoxResult[DynFn[safe pure fn()->uint32]]::Err(const error) -> output(999)
+            }
+        },
+        BoxResult[uint32]::Err(const error) -> output(999)
+    }
+}

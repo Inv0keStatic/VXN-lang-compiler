@@ -1,0 +1,65 @@
+safe void require_graphics(const GfxResult result) {
+    match result {
+        GfxResult::Ok -> {},
+        GfxResult::Error(const error) -> { panic(); }
+    }
+}
+safe Canvas get_canvas(const Window window) {
+    match window_canvas(window) {
+        CanvasOpen::Ok(const canvas) -> { return canvas; },
+        CanvasOpen::Error(const error) -> { panic(); }
+    }
+}
+safe WindowFrame next_frame(const Window window) {
+    match window_poll(window) {
+        FrameRead::Ok(const frame) -> { return frame; },
+        FrameRead::Error(const error) -> { panic(); }
+    }
+}
+safe void draw_scene(const Canvas canvas, const float64 x, const float64 y) {
+    require_graphics(draw_clear(canvas, rgb(18, 22, 34)));
+    const wrap sint32 px = narrow[wrap sint32](x);
+    const wrap sint32 py = narrow[wrap sint32](y);
+    require_graphics(draw_circle(canvas, px + 3, py + 4, 18, rgba(0, 0, 0, 90)));
+    require_graphics(draw_circle(canvas, px, py, 16, rgb(68, 214, 191)));
+    require_graphics(draw_circle(canvas, px - 4, py - 4, 5, rgb(185, 255, 236)));
+}
+safe void play(const Window window) {
+    const Canvas canvas = get_canvas(window);
+    mut float64 x = 140.0;
+    mut float64 y = 160.0;
+    mut float64 speed_x = 145.0;
+    mut float64 speed_y = 115.0;
+    mut bool paused = false;
+    while (true) {
+        const WindowFrame input = next_frame(window);
+        if (input.should_close) { break; }
+        if (key_pressed(ref input, Key::Space)) { paused = !paused; }
+        mut float64 delta = input.delta_seconds;
+        if (delta > 0.05) { delta = 0.05; }
+        if (!paused) { x += speed_x * delta; y += speed_y * delta; }
+        if (key_down(ref input, Key::Left)) { x -= 240.0 * delta; }
+        if (key_down(ref input, Key::Right)) { x += 240.0 * delta; }
+        if (key_down(ref input, Key::Up)) { y -= 240.0 * delta; }
+        if (key_down(ref input, Key::Down)) { y += 240.0 * delta; }
+        if (x < 18.0) { x = 18.0; if (speed_x < 0.0) { speed_x = -speed_x; } }
+        if (x > 782.0) { x = 782.0; if (speed_x > 0.0) { speed_x = -speed_x; } }
+        if (y < 18.0) { y = 18.0; if (speed_y < 0.0) { speed_y = -speed_y; } }
+        if (y > 432.0) { y = 432.0; if (speed_y > 0.0) { speed_y = -speed_y; } }
+        draw_scene(canvas, x, y);
+        require_graphics(window_present(window));
+        match time_sleep(8) {
+            TimeResult::Ok -> {},
+            TimeResult::Error(const error) -> { panic(); }
+        }
+    }
+}
+safe io void main() {
+    match window_open(800, 450, WindowMode::Visible, b"Vxn") {
+        WindowOpen::Ok(const window) -> {
+            play(window);
+            require_graphics(window_close(window));
+        },
+        WindowOpen::Error(const error) -> { panic(); }
+    }
+}

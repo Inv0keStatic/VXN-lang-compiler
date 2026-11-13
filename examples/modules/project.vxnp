@@ -1,0 +1,4 @@
+package modules_demo
+module app = "main.vxn"
+module math.vector = "vector.vxn"
+module math.constants = "constants.vxn"

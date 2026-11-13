@@ -1,0 +1,14 @@
+// Evaluation is explicit in the value's type. No body runs on construction.
+safe io uint32 compute() {
+    output(7);
+    return 42;
+}
+safe io void main() {
+    const eager uint32 immediate = 1; // eager T is ordinary T
+    mut lazy uint32 pending = compute();
+    output(immediate);
+    output(force(uniq mut pending).*); // prints 7, caches and borrows 42
+    output(force(uniq mut pending).*); // only prints the cached 42
+    const eager uint32 result = force_take(pending); // consumes the cache
+    output(result);
+}

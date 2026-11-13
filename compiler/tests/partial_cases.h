@@ -1,0 +1,25 @@
+static const Case partial_cases[]={
+    {"partial opaque lazy factory","safe pure opaque Lazy[uint32,safe pure fn once()->uint32] later(const uint32 n){return delay(fn()->uint32{return n;});}safe io void main(){let const f=later(_);output(force_take(f(42)));}","42\n","",0},
+    {"partial calls and composition","safe pure wrap uint32 add(const wrap uint32 a,const wrap uint32 b)=a+b;safe io void main(){let const a=add(10,_);let const b=add(_,2);let const c=add(_,_);output(a(32));output(b(40));output(c(20,22));}","42\n42\n42\n","",0},
+    {"partial arguments evaluate once in written order","safe io uint32 mark(const uint32 n){output(n);return n;}safe pure uint32 choose(const uint32 a,const uint32 b,const uint32 c=7)=a;safe io void main(){let const f=choose(c:mark(3),b:_,a:mark(42));output(0);output(f(1));output(f(2));}","3\n42\n0\n42\n42\n","",0},
+    {"partial defaults and named holes","safe pure uint32 choose(const uint32 a,const uint32 b=42)=b;safe io void main(){let const f=choose(a:_);output(f(a:7));}","42\n","",0},
+    {"partial generics and contextual inference","safe pure T pick[T](const T a,const T b)=b;safe io void main(){let const f=pick(7,_);output(f(42));let const g=pick[bool](false,_);output(g(true));const safe pure fn(const uint32 a,const uint32 b)->uint32 h=pick(_,_);output(h(7,42));}","42\ntrue\n42\n","",0},
+    {"partial inside a generic body","safe pure T pick[T](const T a,const T b)=b;safe pure T choose[T](const T a,const T b){let const f=pick(a,_);return f(b);}safe io void main(){output(choose(7,42));output(choose(false,true));}","42\ntrue\n","",0},
+    {"partial callable target evaluated before arguments","safe io opaque safe pure fn(const uint32 n,const uint32 m)->uint32 factory(){output(1);return fn(const uint32 n,const uint32 m)->uint32{return n;};}safe io uint32 mark(){output(2);return 42;}safe io void main(){let const f=factory()(mark(),_);output(3);output(f(7));}","1\n2\n3\n42\n","",0},
+    {"partial exclusive callable state","safe io void main(){mut wrap uint32 n=40;let mut f=fn(const wrap uint32 add,const bool unused)->wrap uint32{n+=add;return n;};let mut g=f(1,_);output(g(false));output(g(true));}","41\n42\n","",0},
+    {"partial borrowed capture","safe pure uint32 read(const ref uint32 n,const bool unused)=n.*;safe io void main(){const uint32 n=42;let const f=read(ref n,_);output(f(true));}","42\n","",0},
+    {"partial returned argument origins","safe pure ref uint32 choose(const ref uint32 n,const bool unused)from(n)=n;safe io void main(){const uint32 n=42;let const f=choose(_,false);output(f(ref n).*);}","42\n","",0},
+    {"partial consumes captured owner","safe io uint32 take(const Box[uint32] b,const bool unused)=box_into_inner(b);safe io void main(){match box_new[uint32](42){BoxResult[uint32]::Ok(const b)->{let const f=take(b,_);output(f(true));},_->panic()}}","42\n","",0},
+    {"partial owner dropped without invocation","safe io uint32 take(const Box[uint32] b,const bool unused)=box_into_inner(b);safe io void main(){for(mut wrap uint32 i=0;i<200;i++){match box_new[uint32](42){BoxResult[uint32]::Ok(const b)->{let const unused=take(b,_);},_->panic()}}output(42);}","42\n","",0},
+    {"partial preserves hot target","safe pure hot wrap uint32 add(const wrap uint32 a,const wrap uint32 b)=a+b;safe pure hot wrap uint32 answer(){let const f=add(40,_);return f(2);}safe io void main(){output(answer());}","42\n","",0},
+    {"partial can be partially applied again","safe pure uint32 choose(const uint32 a,const uint32 b,const uint32 c)=c;safe io void main(){let const f=choose(1,_,_);let const g=f(2,_);output(g(42));}","42\n","",0},
+};
+static const Bad partial_bad[]={
+    {"safe uint32 f(const uint32 x,const uint32 y)=x;safe io void main(){f(_);}","missing argument"},
+    {"safe pure T f[T](const T x)=x;safe io void main(){f(_);}","cannot infer partial"},
+    {"safe io uint32 f(const uint32 x){output(x);return x;}safe pure uint32 g(){let const h=f(_);return h(1);}","violates `pure`"},
+    {"safe io void main(){output(_);}","partial application requires"},
+    {"safe pure uint32 read(const ref uint32 n,const bool unused)=n.*;safe io void main(){mut uint32 n=42;let const f=read(ref n,_);n=7;output(f(true));}","borrow"},
+    {"safe io uint32 take(const Box[uint32] b,const bool unused)=box_into_inner(b);safe io void main(){match box_new[uint32](42){BoxResult[uint32]::Ok(const b)->{let const f=take(b,_);f(true);f(false);},_->panic()}}","moved"},
+    {"safe pure uint32 f(const uint32 x,const uint32 y)=x;safe io void main(){f(x:_,x:1);}","duplicate argument"},
+};

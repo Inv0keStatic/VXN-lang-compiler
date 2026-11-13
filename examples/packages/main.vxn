@@ -1,0 +1,8 @@
+import math.vector as vec;
+import adapter.bridge;
+
+safe io void main() {
+    // Both import paths denote the same math package and Vec2 type.
+    const vec::Vec2 value = bridge::make(6,7);
+    output(vec::product(ref value));
+}

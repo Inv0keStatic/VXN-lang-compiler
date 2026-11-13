@@ -1,0 +1,28 @@
+// Bare integers and inferred literals use checked arithmetic.
+safe uint32 add(const uint32 a, const uint32 b) {
+    return a + b;
+}
+
+// Known-safe arithmetic satisfies the hot profile.
+safe hot uint32 answer() {
+    return 6 * 7;
+}
+
+safe io void main() {
+    let const inferred = 40; // checked uint32
+    const checked uint32 result = add(inferred, 2);
+    output(result);
+    output(answer());
+
+    let const negative = -7; // checked sint32
+    output(negative + 3);
+
+    // Modular and saturating arithmetic remain explicit choices.
+    const wrap uint8 wrapping = 255;
+    const saturating uint8 clamped = 255;
+    output(wrapping + 1);
+    output(clamped + 1);
+
+    // Uncommenting this triggers a defined runtime panic:
+    // output(4294967295 + 1);
+}

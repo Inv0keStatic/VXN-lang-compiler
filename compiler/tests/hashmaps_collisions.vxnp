@@ -1,0 +1,6 @@
+package hashmaps_collisions_test
+module app = "hashmaps_collisions.vxn"
+module std.equal = "../../stdlib/equal.vxn"
+module std.hash = "../../stdlib/hash.vxn"
+module std.hashmap = "../../stdlib/hashmap.vxn"
+module std.hashset = "../../stdlib/hashset.vxn"

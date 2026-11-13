@@ -1,0 +1,23 @@
+import std.hashmap as maps;
+safe io void main(){
+    match maps::create[uint32,uint32]() {
+        maps::MapResult[uint32,uint32]::Ok(mut map)->{
+            for(mut uint32 i=0;i<64;i++) {
+                match maps::insert(uniq mut map,i,i) {
+                    maps::Insert[uint32,uint32]::Inserted->{},
+                    maps::Insert[uint32,uint32]::Allocation(_,const returned)->{
+                        if(returned.key!=i||returned.value!=i||maps::size(ref map)!=cast[wrap uint32](i)){panic();}
+                        for(mut uint32 j=0;j<i;j++) {
+                            match maps::get(ref map,ref j){RefOption[uint32]::Some(const v)->{if(v.*!=j){panic();}},_->panic()}
+                        }
+                        // Retrying after the injected failure must work with
+                        // the retained table and partially reserved capacity.
+                        match maps::insert(uniq mut map,returned.key,returned.value){maps::Insert[uint32,uint32]::Inserted->{},_->panic()}
+                    },_->panic()
+                }
+            }
+            if(maps::size(ref map)!=64){panic();}
+            output(true);
+        },maps::MapResult[uint32,uint32]::Err(_)->output(true)
+    }
+}

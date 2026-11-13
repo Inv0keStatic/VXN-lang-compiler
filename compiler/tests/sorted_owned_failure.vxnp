@@ -1,0 +1,6 @@
+package sorted_collections_test
+module app = "sorted_owned_failure.vxn"
+module std.order = "../../stdlib/order.vxn"
+module std.sortedmap = "../../stdlib/sortedmap.vxn"
+module std.sortedset = "../../stdlib/sortedset.vxn"
+module std.iter = "../../stdlib/iter.vxn"

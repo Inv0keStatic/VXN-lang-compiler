@@ -1,0 +1,18 @@
+pub struct Complex { float64 x; float64 y; }
+
+pub safe pure hot Complex square_plus(const Complex z, const Complex c) =
+    Complex { x = z.x * z.x - z.y * z.y + c.x, y = 2.0 * z.x * z.y + c.y };
+
+pub safe pure hot Color ink(const wrap uint32 iteration) {
+    const float64 t = cast[float64]((iteration * 5) & 255) / 255.0;
+    const float64 s = 1.0 - t;
+    return rgb(
+        narrow[wrap uint8](18.0 + 230.0 * 9.0 * s * t * t * t),
+        narrow[wrap uint8](22.0 + 220.0 * 15.0 * s * s * t * t),
+        narrow[wrap uint8](35.0 + 210.0 * 8.5 * s * s * s * t)
+    );
+}
+
+pub safe pure hot Complex position(const wrap uint32 x, const wrap uint32 y) =
+    Complex { x = (cast[float64](x) - 160.0) / 104.0,
+              y = (cast[float64](y) - 180.0) / 104.0 };

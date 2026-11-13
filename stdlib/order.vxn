@@ -1,0 +1,75 @@
+// Implementations promise a stable total order; the compiler checks only the
+// callable contract, not reflexivity, transitivity or agreement with equality.
+pub choice Ordering { Less, Equal, Greater }
+pub constraint Order[T: Move] {
+    safe pure hot Ordering compare(const ref T left, const ref T right);
+}
+
+impl Order[bool] {
+    safe pure hot Ordering compare(const ref bool left, const ref bool right) =
+        match left.* == right.* { true -> Ordering::Equal, false -> match left.* { true -> Ordering::Greater, false -> Ordering::Less } };
+}
+impl Order[uint32] {
+    safe pure hot Ordering compare(const ref uint32 left, const ref uint32 right) {
+        if (left.* < right.*) { return Ordering::Less; }
+        if (left.* > right.*) { return Ordering::Greater; }
+        return Ordering::Equal;
+    }
+}
+impl Order[wrap uint32] {
+    safe pure hot Ordering compare(const ref wrap uint32 left, const ref wrap uint32 right) {
+        if (left.* < right.*) { return Ordering::Less; }
+        if (left.* > right.*) { return Ordering::Greater; }
+        return Ordering::Equal;
+    }
+}
+impl Order[sint32] {
+    safe pure hot Ordering compare(const ref sint32 left, const ref sint32 right) {
+        if (left.* < right.*) { return Ordering::Less; }
+        if (left.* > right.*) { return Ordering::Greater; }
+        return Ordering::Equal;
+    }
+}
+impl Order[wrap sint32] {
+    safe pure hot Ordering compare(const ref wrap sint32 left, const ref wrap sint32 right) {
+        if (left.* < right.*) { return Ordering::Less; }
+        if (left.* > right.*) { return Ordering::Greater; }
+        return Ordering::Equal;
+    }
+}
+impl Order[uint64] {
+    safe pure hot Ordering compare(const ref uint64 left, const ref uint64 right) {
+        if (left.* < right.*) { return Ordering::Less; }
+        if (left.* > right.*) { return Ordering::Greater; }
+        return Ordering::Equal;
+    }
+}
+impl Order[wrap uint64] {
+    safe pure hot Ordering compare(const ref wrap uint64 left, const ref wrap uint64 right) {
+        if (left.* < right.*) { return Ordering::Less; }
+        if (left.* > right.*) { return Ordering::Greater; }
+        return Ordering::Equal;
+    }
+}
+impl Order[sint64] {
+    safe pure hot Ordering compare(const ref sint64 left, const ref sint64 right) {
+        if (left.* < right.*) { return Ordering::Less; }
+        if (left.* > right.*) { return Ordering::Greater; }
+        return Ordering::Equal;
+    }
+}
+impl Order[wrap sint64] {
+    safe pure hot Ordering compare(const ref wrap sint64 left, const ref wrap sint64 right) {
+        if (left.* < right.*) { return Ordering::Less; }
+        if (left.* > right.*) { return Ordering::Greater; }
+        return Ordering::Equal;
+    }
+}
+impl Order[String] {
+    safe pure hot Ordering compare(const ref String left, const ref String right) =
+        match str_compare(string_view(left), string_view(right)) {
+            TextOrder::Less -> Ordering::Less,
+            TextOrder::Equal -> Ordering::Equal,
+            TextOrder::Greater -> Ordering::Greater
+        };
+}

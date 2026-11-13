@@ -1,0 +1,1 @@
+pub comptime uint32 dimensions = 2;

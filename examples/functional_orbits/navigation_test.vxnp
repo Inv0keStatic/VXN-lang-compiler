@@ -1,0 +1,5 @@
+package orbit_navigation_test
+module app = "navigation_test.vxn"
+module common = "common.vxn"
+module navigation = "navigation.vxn"
+module sampling = "sampling.vxn"

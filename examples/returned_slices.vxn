@@ -1,0 +1,21 @@
+safe io Slice[T] prefix[T](const Slice[T] data, const uint64 count) from(data) {
+    return slice(data, 0, count);
+}
+
+struct Row {
+    uint32[3] values;
+}
+
+safe pure Slice[uint32] values(const ref Row row) from(row) {
+    return slice(ref row.values);
+}
+
+safe io void main() {
+    mut Row row = Row { values = { 7, 42, 9 } };
+    const Slice[uint32] selected = prefix(values(ref row), 2);
+    output(len(selected));
+    output(selected[1]);
+    // The returned descriptor has no further uses, so its loan can end.
+    row.values[1] = 99;
+    output(row.values[1]);
+}

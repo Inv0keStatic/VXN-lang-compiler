@@ -1,0 +1,20 @@
+// Runtime-selected function values keep constant stack depth even at O0.
+// Dynamic selection is deliberately outside the hot certification profile.
+safe pure bool even(const wrap uint32 n) {
+    if (n == 0) { return true; }
+    const safe pure fn(const wrap uint32) -> bool next = odd;
+    return tail next(n - 1);
+}
+
+safe pure bool odd(const wrap uint32 n) {
+    if (n == 0) { return false; }
+    const safe pure fn(const wrap uint32) -> bool next = even;
+    return tail next(n - 1);
+}
+
+safe io void main() {
+    let const start = fn(const wrap uint32 count) -> bool {
+        return tail even(count);
+    };
+    output(start(10001));
+}

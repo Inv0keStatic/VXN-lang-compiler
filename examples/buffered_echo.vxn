@@ -1,0 +1,26 @@
+// Binary stdin/stdout copy using one stack buffer and explicit reborrows.
+safe io void write_prefix(const Slice[wrap uint8] bytes, const wrap uint32 count) {
+    match io_write(io_stdout(), slice(bytes, 0, count)) {
+        IoResult::Ok -> {},
+        IoResult::Error(const error) -> panic()
+    }
+}
+
+safe io void main() {
+    mut wrap uint8[8] bytes = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    const UniqSlice[wrap uint8] buffer = uniq_slice(uniq mut bytes);
+    while (true) {
+        match io_read(io_stdin(), uniq mut buffer) {
+            IoReadBuffer::Read(const count) -> write_prefix(ref buffer, count),
+            IoReadBuffer::End -> { break; },
+            IoReadBuffer::Error(const error, const count) -> {
+                write_prefix(ref buffer, count);
+                panic();
+            }
+        }
+    }
+    match io_flush(io_stdout()) {
+        IoResult::Ok -> {},
+        IoResult::Error(const error) -> panic()
+    }
+}

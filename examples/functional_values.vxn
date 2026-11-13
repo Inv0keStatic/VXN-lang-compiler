@@ -1,0 +1,56 @@
+choice Reading[T:Move] { Missing, Value(T) }
+
+safe pure wrap uint32 add(const wrap uint32 a, const wrap uint32 b) = a + b;
+
+safe io F[B] transform[F[_], A:Move, B:Move,
+    C:safe io fn once(const F[A])->F[B]](const F[A] value, const C callback) {
+    return callback(value);
+}
+
+safe pure Reading[bool] positive(const Reading[uint32] reading) {
+    return match reading {
+        Reading[uint32]::Missing -> Reading[bool]::Missing,
+        Reading[uint32]::Value(const n) -> Reading[bool]::Value(n > 0)
+    };
+}
+
+safe pure opaque Lazy[wrap uint32, safe pure fn once()->wrap uint32]
+deferred_add(const wrap uint32 a, const wrap uint32 b) {
+    return delay(fn()->wrap uint32 { return add(a, b); });
+}
+
+safe io void main() {
+    let const add_ten = add(10, _);
+    output(add_ten(32));
+
+    let const reading = transform(Reading[uint32]::Value(42), positive);
+    output(match reading {
+        Reading[bool]::Value(const yes) -> yes,
+        Reading[bool]::Missing -> false
+    });
+
+    let const later = deferred_add(40, _);
+    output(force_take(later(2)));
+
+    mut uint32 source = 42;
+    let const view = ref source;
+    mut lazy uint32 borrowed = view.*;
+    output(force(uniq mut borrowed).*);
+    output(force_take(borrowed));
+    source = 7;
+
+    rec {
+        const eager uint32 seed = source;
+        const lazy uint32 answer = try_force(increment)? + 1;
+        const lazy uint32 increment = try_force(seed)? + 34;
+        const lazy uint32 cycle = try_force(cycle)?;
+    }
+    output(match try_force(answer) {
+        LazyResult[uint32]::Ok(const n) -> n,
+        LazyResult[uint32]::Err(_) -> 0
+    });
+    output(match try_force(cycle) {
+        LazyResult[uint32]::Ok(_) -> false,
+        LazyResult[uint32]::Err(LazyError::Cycle) -> true
+    });
+}

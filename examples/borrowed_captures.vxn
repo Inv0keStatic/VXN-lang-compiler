@@ -1,0 +1,31 @@
+// Captures carry shared loans; the environment itself stays inline.
+safe pure T read[T](const ref T value) {
+    let const get = fn()->T { return value.*; };
+    return get();
+}
+
+safe pure uint32 call(const FnRef[safe pure fn()->uint32] callback) {
+    return callback();
+}
+
+safe io void main() {
+    mut uint32 value = 42;
+    const ref uint32 borrowed = ref value;
+    let const get = fn()->uint32 { return borrowed.*; };
+    let const nested = fn()->uint32 { return get(); };
+    let const view = fn_ref[safe pure fn()->uint32](ref nested);
+    output(call(view));
+    // The last use of every derived closure/view ends the shared loan.
+    value = 7;
+    output(read(ref value));
+
+    const wrap uint32 base = 40;
+    const ref wrap uint32 shared = ref base;
+    mut wrap uint32 count = 0;
+    let mut next = fn()->wrap uint32 { count += 1; return shared.* + count; };
+    let const counter = fn_uniq[safe hot fn mut()->wrap uint32](uniq mut next);
+    output(counter());
+    // Exclusive environment access does not make shared captures exclusive.
+    output(shared.*);
+    output(counter());
+}

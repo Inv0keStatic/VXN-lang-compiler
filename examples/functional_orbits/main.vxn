@@ -1,0 +1,10 @@
+import common::{Complex};
+import functional::{julia};
+import renderer::{gallery};
+
+safe io void main() {
+    gallery("build/functional-orbits.ppm",
+        julia(Complex { x = -0.8, y = 0.156 }),
+        julia(Complex { x = -0.4, y = 0.6 }),
+        julia(Complex { x = 0.285, y = 0.01 }));
+}

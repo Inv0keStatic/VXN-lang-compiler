@@ -1,0 +1,12 @@
+// Compiler-provided I/O result types. IoFile is an opaque runtime handle.
+// Constructor order matches compiler/runtime/io_api.h.
+choice IoError {
+    NotFound, PermissionDenied, InvalidPath, InvalidHandle, WrongMode,
+    ResourceLimit, ReadFailed, WriteFailed, CloseFailed, FlushFailed, OpenFailed
+}
+choice IoOpen { Ok(IoFile), Error(IoError) }
+choice IoRead { Byte(wrap uint8), End, Error(IoError) }
+choice IoReadBuffer { Read(wrap uint32), End, Error(IoError, wrap uint32) }
+choice IoResult { Ok, Error(IoError) }
+choice IoLineError { Io(IoError), Allocation(AllocError), Limit }
+choice IoLine { Read(wrap uint32), End, Error(IoLineError, wrap uint32) }

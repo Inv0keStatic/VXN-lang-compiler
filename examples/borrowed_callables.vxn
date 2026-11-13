@@ -1,0 +1,34 @@
+// Borrowed callable views erase the target without moving or allocating it.
+safe pure wrap uint32 apply(
+    const FnRef[safe pure fn(const wrap uint32) -> wrap uint32] callback,
+    const wrap uint32 value
+) {
+    return callback(value);
+}
+
+safe noalloc nopanic noblock wrap uint32 twice(
+    const FnUniq[safe noalloc nopanic noblock fn mut() -> wrap uint32] callback
+) {
+    callback();
+    return callback();
+}
+
+safe io void main() {
+    const wrap uint32 offset = 40;
+    let const add = fn(const wrap uint32 value) -> wrap uint32 {
+        return offset + value;
+    };
+    let const view = fn_ref[safe pure fn(const wrap uint32) -> wrap uint32](ref add);
+    output(apply(view, 2));
+    output(view(3));
+
+    mut wrap uint32 count = 40;
+    let mut next = fn() -> wrap uint32 {
+        count += 1;
+        return count;
+    };
+    let const exclusive = fn_uniq[safe noalloc nopanic noblock fn mut() -> wrap uint32](uniq mut next);
+    output(twice(uniq mut exclusive));
+    output(exclusive());
+    output(next());
+}

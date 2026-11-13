@@ -1,0 +1,38 @@
+struct LabelledValue {
+    ref uint32 value;
+    str label;
+}
+
+safe pure LabelledValue describe(const ref uint32 value) from(value) {
+    return LabelledValue { value=value, label="answer" };
+}
+
+safe pure hot TextSliceResult middle(const str text) from(text) {
+    const str suffix = str_slice(text, 1, 4)?;
+    return str_slice(suffix, 0, 4);
+}
+
+safe pure RefOption[T] select[T: Move](const ref T value, const bool present) from(value) {
+    if (present) { return RefOption[T]::Some(value); }
+    return RefOption[T]::None;
+}
+
+safe io void main() {
+    const uint32 value = 42;
+    const LabelledValue labelled = describe(ref value);
+    output(labelled.value.*);
+    output(str_byte_len(labelled.label));
+    match select(ref value, true) {
+        RefOption[uint32]::Some(const found) -> output(found.*),
+        RefOption[uint32]::None -> output(0)
+    }
+    match middle("A😀Z") {
+        TextSliceResult::Ok(const emoji) -> output(str_scalar_len(emoji)),
+        TextSliceResult::Err(_) -> panic()
+    }
+    const wrap uint8[2] bytes = b"\xc3\xa9";
+    match str_from_utf8(slice(ref bytes)) {
+        StrResult::Ok(const text) -> output(str_scalar_len(text)),
+        StrResult::Err(_) -> panic()
+    }
+}

@@ -1,0 +1,10 @@
+safe pure wrap uint32 add(const wrap uint32 a, const wrap uint32 b) {
+    return a + b;
+}
+
+safe io nopanic void main() {
+    const wrap uint32 answer = add(40, 2);
+    output(answer);
+    const wrap uint32 maximum = 0xffff_ffff;
+    output(maximum + 1);
+}

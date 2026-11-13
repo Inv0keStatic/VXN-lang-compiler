@@ -1,0 +1,126 @@
+import cache;
+import common::{Complex, square_plus};
+import functional::{julia};
+import progressive::{Sample, begin, advance, color};
+import navigation::{Set, State, View, Action, initial, camera, point, parameter, update};
+
+safe void require(const bool condition) { if (!condition) { panic(); } }
+safe void gfx(const GfxResult result) { match result { GfxResult::Ok -> {}, _ -> panic() } }
+safe float64 now() = match time_now() { TimeRead::Seconds(const value) -> value, _ -> panic() };
+safe pure hot bool same_color(const Color a, const Color b) = a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+safe Color pixel(const Canvas image, const wrap sint32 x, const wrap sint32 y) =
+    match canvas_read_pixel(image, x, y) { PixelRead::Ok(const value) -> value, _ -> panic() };
+safe void finish(const uniq mut cache::Cache images, const Canvas target, const wrap uint32 depth) {
+    while (cache::completed(ref images.*) < depth && !cache::settled(ref images.*)) {
+        cache::refine(uniq mut images.*, target);
+    }
+}
+// Independent procedural oracle checks the stored tail-recursive continuation.
+safe pure hot Sample reference(const Complex initial_z, const Complex c, const wrap uint32 limit) {
+    mut Complex z = initial_z;
+    mut wrap uint32 count = 0;
+    while (count < limit) {
+        if (z.x * z.x + z.y * z.y > 4.0) { return Sample { z = z, step = count, escaped = true }; }
+        z = square_plus(z, c); count++;
+    }
+    return Sample { z = z, step = count, escaped = false };
+}
+safe void samples() {
+    const Sample last = advance(Sample { z = Complex { x = 0.0, y = 0.0 }, step = 4294967279, escaped = false },
+        Complex { x = 0.0, y = 0.0 }, 4294967280);
+    require(last.step == 4294967280 && !last.escaped);
+    mut wrap uint32 late = 0;
+    for (mut wrap uint32 y = 0; y < 80; y++) {
+        for (mut wrap uint32 x = 0; x < 100; x++) {
+            const Complex z = Complex { x = cast[float64](x) * 0.03 - 1.5, y = cast[float64](y) * 0.03 - 1.2 };
+            const Complex c = parameter(Set::Dragon);
+            const Sample first = advance(begin(z), c, 180);
+            const Sample continued = advance(first, c, 360);
+            const Sample expected = reference(z, c, 360);
+            require(continued.step == expected.step && continued.escaped == expected.escaped);
+            require(continued.z.x == expected.z.x && continued.z.y == expected.z.y);
+            require(same_color(color(continued), color(expected)));
+            if (first.escaped) { require(continued.step == first.step); }
+            if (!first.escaped && continued.escaped) { late++; }
+        }
+    }
+    require(late > 0);
+    output(late);
+}
+safe io void main() {
+    samples();
+    const Canvas target = match canvas_create(960, 628) { CanvasOpen::Ok(const value) -> value, _ -> panic() };
+    mut cache::Cache images = cache::create();
+    const State overview = initial();
+    const State dragon = update(overview, Action::Select(Set::Dragon));
+    const State deep = update(dragon, Action::Zoom(Set::Dragon, 0.0, 0.0, 0.01));
+    const State dust = update(overview, Action::Select(Set::Dust));
+    const State islands = update(overview, Action::Select(Set::Islands));
+    require(!cache::select(uniq mut images, target, overview));
+    finish(uniq mut images, target, 180);
+    require(cache::completed(ref images) == 180);
+    require(vec_len(ref images.entries[images.current].samples) == 518400);
+    // The initial image is exactly the previous 180-iteration shader at every pixel.
+    for (mut wrap uint32 y = 0; y < 540; y++) {
+        for (mut wrap uint32 x = 0; x < 960; x++) {
+            const Set set = match x { const n if n < 320 -> Set::Dragon, const n if n < 640 -> Set::Dust, _ -> Set::Islands };
+            let const shader = julia(parameter(set));
+            const Complex z = point(camera(overview, set), (cast[float64](x % 320) + 0.5 - 160.0) / 320.0,
+                (cast[float64](y) + 0.5 - 270.0) / 320.0);
+            require(same_color(pixel(target, narrow[wrap sint32](x), 88 + narrow[wrap sint32](y)), shader(z)));
+        }
+    }
+    output(true);
+    require(!cache::select(uniq mut images, target, deep));
+    const float64 first_start = now();
+    finish(uniq mut images, target, 180);
+    output((now() - first_start) * 1000.0);
+    const float64 deeper_start = now();
+    finish(uniq mut images, target, 360);
+    output((now() - deeper_start) * 1000.0);
+    const wrap uint32 saved_index = images.current;
+    require(cache::completed(ref images) == 360);
+    const wrap uint32 saved_cursor = images.entries[saved_index].cursor;
+    // Selected-view keys ignore hidden cameras. Gallery keys ignore selection.
+    mut State hidden_change = deep;
+    hidden_change.dust.span = 9.0;
+    require(cache::same_image(hidden_change, deep));
+    require(!cache::same_image(deep, dragon));
+    require(!cache::same_image(deep, overview));
+    mut State other_selection = overview; other_selection.selected = Set::Dust;
+    require(cache::same_image(overview, other_selection));
+    require(!cache::select(uniq mut images, target, dust));
+    // Partial first passes are resumable, too.
+    cache::refine(uniq mut images, target);
+    const wrap uint32 partial_cursor = images.entries[images.current].cursor;
+    require(partial_cursor > 0);
+    const float64 hit_start = now();
+    require(cache::select(uniq mut images, target, hidden_change));
+    output((now() - hit_start) * 1000.0);
+    require(images.current == saved_index && cache::completed(ref images) == 360);
+    require(images.entries[saved_index].cursor == saved_cursor);
+    // Every restored pixel agrees with an independently computed deeper render.
+    for (mut wrap uint32 y = 0; y < 540; y += 7) {
+        for (mut wrap uint32 x = 0; x < 960; x += 7) {
+            const Complex z = point(camera(deep, Set::Dragon), (cast[float64](x) + 0.5 - 480.0) / 540.0,
+                (cast[float64](y) + 0.5 - 270.0) / 540.0);
+            require(same_color(pixel(target, narrow[wrap sint32](x), 88 + narrow[wrap sint32](y)), color(reference(z, parameter(Set::Dragon), 360))));
+        }
+    }
+    require(cache::select(uniq mut images, target, dust));
+    require(images.entries[images.current].cursor == partial_cursor);
+    require(!cache::select(uniq mut images, target, islands));
+    require(!cache::select(uniq mut images, target, dragon));
+    require(!cache::select(uniq mut images, target, overview)); // least-recently-used image evicted
+    // A view entirely outside the escape radius completes once and then idles.
+    mut State outside = dragon;
+    outside.dragon = View { center = Complex { x = 10.0, y = 10.0 }, span = 0.01 };
+    require(!cache::select(uniq mut images, target, outside));
+    finish(uniq mut images, target, 180);
+    require(cache::settled(ref images));
+    cache::refine(uniq mut images, target);
+    require(cache::completed(ref images) == 180);
+    cache::close(ref images);
+    gfx(canvas_close(target));
+    output(true);
+}

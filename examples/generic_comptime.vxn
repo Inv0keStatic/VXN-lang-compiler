@@ -1,0 +1,43 @@
+struct Vec2 {
+    wrap uint32 x;
+    wrap uint32 y;
+}
+
+constraint Add[T] {
+    safe pure T operator +(const T a, const T b);
+}
+
+impl Add[Vec2] {
+    safe pure Vec2 operator +(const Vec2 a, const Vec2 b) {
+        return Vec2 { x = a.x + b.x, y = a.y + b.y };
+    }
+}
+
+// The template uses only its declared operation contract and plain data.
+comptime safe pure T repeated[T: Add](
+    const T value,
+    const T zero,
+    const wrap uint32 count
+) {
+    mut T total = zero;
+    for (mut wrap uint32 i = 0; i < count; i += 1) {
+        total = total + value;
+    }
+    return total;
+}
+
+comptime safe pure T[2] twice[T](const T value) {
+    return { value, value };
+}
+
+comptime Vec2 total = repeated(
+    Vec2 { x = 3, y = 7 },
+    Vec2 { x = 0, y = 0 },
+    6
+);
+comptime Vec2[2] table = twice(total);
+
+safe io void main() {
+    output(table[0].x);
+    output(table[1].y);
+}

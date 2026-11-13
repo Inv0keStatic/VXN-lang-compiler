@@ -1,0 +1,61 @@
+import std.sortedmap as maps;
+import std.sortedset as sets;
+import std.iter as cursors;
+
+safe io void ensure(const bool ok) { if (!ok) { panic(); } }
+safe io void main() {
+    mut maps::Map[wrap uint32,wrap uint32] map = match maps::create[wrap uint32,wrap uint32]() {
+        maps::MapResult[wrap uint32,wrap uint32]::Ok(const map) -> map, _ -> panic()
+    };
+    for (mut wrap uint32 i = 64; i > 0; i--) {
+        const wrap uint32 key = (i - 1) * 2;
+        match maps::insert(uniq mut map, key, key + 1) {
+            maps::Insert[wrap uint32,wrap uint32]::Inserted -> {}, _ -> panic()
+        }
+    }
+    for (mut wrap uint32 i = 0; i < 128; i++) {
+        ensure(maps::lower_bound(ref map, ref i) == (i + 1) / 2);
+        ensure(maps::upper_bound(ref map, ref i) == i / 2 + 1);
+        ensure(maps::contains(ref map, ref i) == (i % 2 == 0));
+    }
+    match maps::insert(uniq mut map, 4, 999) {
+        maps::Insert[wrap uint32,wrap uint32]::Occupied(const returned) -> { ensure(returned.key == 4 && returned.value == 999); },
+        _ -> panic()
+    }
+    mut cursors::Iterator[maps::Entry[wrap uint32,wrap uint32]] cursor = cursors::from_slice(maps::view(ref map));
+    mut wrap uint32 sum = 0;
+    while (true) {
+        match cursors::next(cursor) {
+            cursors::Step[maps::Entry[wrap uint32,wrap uint32]]::Item(const entry,const rest) -> {
+                sum += entry.value;
+                cursor = rest;
+            },
+            cursors::Step[maps::Entry[wrap uint32,wrap uint32]]::End -> { break; }
+        }
+    }
+    output(sum);
+    const wrap uint32 key = 4;
+    match maps::remove(uniq mut map,ref key) {
+        VecPop[maps::Entry[wrap uint32,wrap uint32]]::Some(const entry) -> ensure(entry.value == 5),
+        _ -> panic()
+    }
+    match maps::pop_first(uniq mut map) {
+        VecPop[maps::Entry[wrap uint32,wrap uint32]]::Some(const entry) -> output(entry.key), _ -> panic()
+    }
+    match maps::pop_last(uniq mut map) {
+        VecPop[maps::Entry[wrap uint32,wrap uint32]]::Some(const entry) -> output(entry.key), _ -> panic()
+    }
+    output(maps::size(ref map));
+    const uint32[5] data = {1,2,3,4,5};
+    let const first = cursors::take(cursors::skip(cursors::from_slice(slice(ref data)),1),3);
+    match cursors::next_back(first) {
+        cursors::Step[uint32]::Item(const value,const rest) -> { output(value.*);output(cursors::remaining(rest)); },
+        _ -> panic()
+    }
+    mut sets::Set[uint32] set = match sets::create[uint32]() { sets::SetResult[uint32]::Ok(const set) -> set, _ -> panic() };
+    sets::insert(uniq mut set,42);sets::insert(uniq mut set,7);sets::insert(uniq mut set,42);
+    output(sets::size(ref set));
+    const uint32 search = 7;
+    ensure(sets::contains(ref set,ref search));
+    sets::remove(uniq mut set,ref search);output(sets::size(ref set));
+}

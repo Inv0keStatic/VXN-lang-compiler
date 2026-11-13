@@ -1,0 +1,25 @@
+// Explicit tail transfer works at -O0, including between different functions.
+safe pure hot wrap uint32 sum(
+    const wrap uint32 remaining,
+    const wrap uint32 total = 0
+) {
+    match remaining {
+        0 -> { return total; },
+        _ -> { return tail sum(remaining - 1, total + remaining); }
+    }
+}
+
+safe pure hot bool even(const wrap uint32 n) {
+    if (n == 0) { return true; }
+    return tail odd(n - 1);
+}
+
+safe pure hot bool odd(const wrap uint32 n) {
+    if (n == 0) { return false; }
+    return tail even(n - 1);
+}
+
+safe io void main() {
+    output(sum(10000));
+    output(even(10001));
+}

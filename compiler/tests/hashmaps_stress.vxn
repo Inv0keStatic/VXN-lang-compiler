@@ -1,0 +1,2 @@
+import tests.collision;
+safe io void main(){collision::check(2000);}

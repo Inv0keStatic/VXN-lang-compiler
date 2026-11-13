@@ -1,0 +1,21 @@
+import common::{Complex, square_plus, ink};
+
+// The interactive renderer retains this state between refinement rounds.
+// Reaching a depth limit means unresolved, not proven inside the Julia set.
+pub struct Sample { Complex z; wrap uint32 step; bool escaped; }
+pub safe pure hot Sample begin(const Complex z) = Sample { z = z, step = 0, escaped = false };
+safe pure hot Sample extend(const Complex z, const Complex c, const wrap uint32 step, const wrap uint32 limit) {
+    match step {
+        const n if n >= limit -> { return Sample { z = z, step = step, escaped = false }; },
+        _ if z.x * z.x + z.y * z.y > 4.0 -> { return Sample { z = z, step = step, escaped = true }; },
+        _ -> { return tail extend(square_plus(z, c), c, step + 1, limit); }
+    }
+}
+pub safe pure hot Sample advance(const Sample sample, const Complex c, const wrap uint32 limit) {
+    if (sample.escaped) { return sample; }
+    return extend(sample.z, c, sample.step, limit);
+}
+pub safe pure hot Color color(const Sample sample) = match sample.escaped {
+    true -> ink(sample.step), false -> rgb(7, 11, 23)
+};
+

@@ -1,0 +1,15 @@
+// Captured ownership crosses a tail chain without allocating environments.
+safe uint32 hop(const Box[uint32] owner, const wrap uint32 remaining) {
+    let const next = fn() -> uint32 {
+        if (remaining == 0) { return box_into_inner(owner); }
+        return tail hop(owner, remaining - 1);
+    };
+    return tail next();
+}
+
+safe io void main() {
+    match box_new[uint32](42) {
+        BoxResult[uint32]::Ok(const owner) -> output(hop(owner, 10000)),
+        BoxResult[uint32]::Err(_) -> output(0)
+    }
+}

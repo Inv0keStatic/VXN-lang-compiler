@@ -1,0 +1,33 @@
+// Owning elements grow, move out, and clean up without manual frees.
+choice DemoResult { Ok(uint32), Err(AllocError) }
+
+safe io DemoResult demo() {
+    mut Vec[Box[uint32]] values = vec_new[Box[uint32]]()?;
+    for (mut wrap uint32 i = 1; i <= 5; i++) {
+        const Box[uint32] value = box_new[uint32](cast[uint32](i))?;
+        match vec_push(uniq mut values, value) {
+            AllocResult::Ok -> {},
+            AllocResult::Err(const error) -> { return DemoResult::Err(error); }
+        }
+    }
+
+    output(len(values));
+    const Slice[Box[uint32]] view = vec_slice(ref values);
+    output(box_ref(ref view[0]).*);
+
+    // The shared view has ended. pop transfers the final box to its caller.
+    match vec_pop(uniq mut values) {
+        VecPop[Box[uint32]]::Some(const last) -> {
+            vec_clear(uniq mut values);
+            return DemoResult::Ok(box_ref(ref last).*);
+        },
+        VecPop[Box[uint32]]::Empty -> { return DemoResult::Ok(0); }
+    }
+}
+
+safe io void main() {
+    match demo() {
+        DemoResult::Ok(const value) -> output(value),
+        DemoResult::Err(const error) -> { io_write(io_stderr(), b"Allocation failed\n"); }
+    }
+}

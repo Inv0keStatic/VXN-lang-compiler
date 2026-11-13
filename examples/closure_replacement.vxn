@@ -1,0 +1,21 @@
+// Replacement keeps the new Box alive with the reusable closure.
+safe io void main() {
+    match box_new[uint32](1) {
+        BoxResult[uint32]::Ok(mut state) -> {
+            let mut replace = fn(const Box[uint32] next) -> uint32 {
+                const uint32 previous = box_ref(ref state).*;
+                state = next;
+                return previous;
+            };
+            match box_new[uint32](42) {
+                BoxResult[uint32]::Ok(const next) -> output(replace(next)),
+                BoxResult[uint32]::Err(const error) -> output(999)
+            }
+            match box_new[uint32](7) {
+                BoxResult[uint32]::Ok(const next) -> output(replace(next)),
+                BoxResult[uint32]::Err(const error) -> output(999)
+            }
+        },
+        BoxResult[uint32]::Err(const error) -> output(999)
+    }
+}

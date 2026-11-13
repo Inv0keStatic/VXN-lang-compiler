@@ -1,0 +1,193 @@
+import std.equal as keys;
+import std.hash as hashes;
+
+// Dense entries and an open-addressed index. Zero is empty; UINT32_MAX is a
+// tombstone. Entry ids are index+1. Methods preserve a maximum 1/2 table load.
+pub struct Entry[K,V] { wrap uint64 hash; K key; V value; }
+pub struct Map[K,V] { Vec[Entry[K,V]] entries; Vec[wrap uint32] buckets; wrap uint32 used; }
+pub choice MapResult[K,V] { Ok(Map[K,V]), Err(AllocError) }
+pub choice Insert[K,V] { Inserted, Occupied(Entry[K,V]), Allocation(AllocError,Entry[K,V]) }
+pub choice Lookup { Found(wrap uint32), Missing }
+choice Probe { Found(wrap uint32,wrap uint32), Vacant(wrap uint32), Full }
+
+pub safe io nopanic MapResult[K,V] create[K:Move,V:Move]() {
+    match vec_new[Entry[K,V]]() {
+        VecResult[Entry[K,V]]::Ok(const entries)->{
+            match vec_new[wrap uint32]() {
+                VecResult[wrap uint32]::Ok(const buckets)->{
+                    return MapResult[K,V]::Ok(Map[K,V]{entries=entries,buckets=buckets,used=0});
+                },
+                VecResult[wrap uint32]::Err(const error)->{return MapResult[K,V]::Err(error);}
+            }
+        },
+        VecResult[Entry[K,V]]::Err(const error)->{return MapResult[K,V]::Err(error);}
+    }
+}
+
+pub safe pure hot wrap uint32 size[K:Move,V:Move](const ref Map[K,V] map)=vec_len(ref map.entries);
+pub safe pure hot wrap uint32 capacity[K:Move,V:Move](const ref Map[K,V] map) {
+    const wrap uint32 table=vec_len(ref map.buckets)/2;
+    const wrap uint32 entries=vec_capacity(ref map.entries);
+    if(entries<table){return entries;}return table;
+}
+pub safe pure hot Slice[Entry[K,V]] view[K:Move,V:Move](const ref Map[K,V] map)from(map)=vec_slice(ref map.entries);
+
+safe pure hot Probe locate[K:keys::Equal,V:Move](const ref Map[K,V] map,const ref K key,const wrap uint64 hash) {
+    const Slice[wrap uint32] buckets=vec_slice(ref map.buckets);
+    const Slice[Entry[K,V]] entries=view(map);
+    if(len(buckets)==0){return Probe::Full;}
+    const wrap uint32 mask=len(buckets)-1;
+    mut wrap uint32 slot=narrow[wrap uint32](hash)&mask;
+    mut wrap uint32 vacant=4294967295;
+    for(mut wrap uint32 steps=0;steps<len(buckets);steps++) {
+        if(slot<len(buckets)) {
+            const wrap uint32 id=buckets[slot];
+            if(id==0){if(vacant!=4294967295){return Probe::Vacant(vacant);}return Probe::Vacant(slot);}
+            if(id==4294967295){if(vacant==4294967295){vacant=slot;}}
+            else {
+                const wrap uint32 index=id-1;
+                if(index<len(entries)) {
+                    if(entries[index].hash==hash&&keys::Equal[K]::equal(ref entries[index].key,key)) {
+                        return Probe::Found(index,slot);
+                    }
+                }
+            }
+        }
+        slot=(slot+1)&mask;
+    }
+    if(vacant!=4294967295){return Probe::Vacant(vacant);}return Probe::Full;
+}
+
+pub safe pure hot Lookup find[K:keys::Equal & hashes::Hash,V:Move](const ref Map[K,V] map,const ref K key) {
+    return match locate(map,key,hashes::Hash[K]::hash(key)) {
+        Probe::Found(const index,_)->Lookup::Found(index),_->Lookup::Missing
+    };
+}
+pub safe pure hot bool contains[K:keys::Equal & hashes::Hash,V:Move](const ref Map[K,V] map,const ref K key)=
+    match find(map,key){Lookup::Found(_)->true,_->false};
+
+pub safe pure hot RefOption[V] get[K:keys::Equal & hashes::Hash,V:Move](const ref Map[K,V] map,const ref K key)from(map) {
+    match find(map,key) {
+        Lookup::Found(const index)->{
+            const Slice[Entry[K,V]] entries=view(map);
+            if(index<len(entries)){return RefOption[V]::Some(ref entries[index].value);}
+        },_->{}
+    }
+    return RefOption[V]::None;
+}
+
+// Heterogeneous queries supply a compatible hash and a pure borrowed predicate.
+pub safe pure RefOption[V] get_where[K:Move,V:Move](const ref Map[K,V] map,const wrap uint64 hash,
+    const FnRef[safe pure fn(const ref K)->bool] predicate)from(map) {
+    const Slice[wrap uint32] buckets=vec_slice(ref map.buckets);
+    const Slice[Entry[K,V]] entries=view(map);
+    if(len(buckets)==0){return RefOption[V]::None;}
+    const wrap uint32 mask=len(buckets)-1;
+    mut wrap uint32 slot=narrow[wrap uint32](hash)&mask;
+    for(mut wrap uint32 steps=0;steps<len(buckets);steps++) {
+        if(slot<len(buckets)) {
+            const wrap uint32 id=buckets[slot];
+            if(id==0){return RefOption[V]::None;}
+            if(id!=4294967295) {
+                const wrap uint32 index=id-1;
+                if(index<len(entries)) {
+                    if(entries[index].hash==hash&&predicate(ref entries[index].key)) {
+                        return RefOption[V]::Some(ref entries[index].value);
+                    }
+                }
+            }
+        }
+        slot=(slot+1)&mask;
+    }
+    return RefOption[V]::None;
+}
+
+safe io void rebuild[K:Move,V:Move](const uniq mut Map[K,V] map) {
+    const Slice[Entry[K,V]] entries=vec_slice(ref map.entries);
+    const UniqSlice[wrap uint32] buckets=vec_uniq(uniq mut map.buckets);
+    for(mut wrap uint32 slot=0;slot<len(buckets);slot++){buckets[slot]=0;}
+    const wrap uint32 mask=len(buckets)-1;
+    for(mut wrap uint32 i=0;i<len(entries);i++) {
+        mut wrap uint32 slot=narrow[wrap uint32](entries[i].hash)&mask;
+        for(mut wrap uint32 steps=0;steps<len(buckets);steps++) {
+            if(buckets[slot]==0){buckets[slot]=i+1;break;}
+            slot=(slot+1)&mask;
+        }
+    }
+    map.used=len(entries);
+}
+
+pub safe io AllocResult reserve[K:Move,V:Move](const uniq mut Map[K,V] map,const wrap uint32 additional) {
+    const wrap uint32 count=size(ref map.*);
+    if(count>1073741824||additional>1073741824-count){return AllocResult::Err(AllocError::OutOfMemory);}
+    const wrap uint32 required=count+additional;
+    match vec_reserve(uniq mut map.entries,additional){AllocResult::Ok->{},AllocResult::Err(const error)->{return AllocResult::Err(error);}}
+    const wrap uint32 old=vec_len(ref map.buckets);
+    if(old!=0&&required<=old/2&&map.used<=old/2&&additional<=old/2-map.used){return AllocResult::Ok;}
+    mut wrap uint32 target=old;
+    if(target<8){target=8;}
+    while(target/2<required){target*=2;}
+    match vec_reserve(uniq mut map.buckets,target-old){AllocResult::Ok->{},AllocResult::Err(const error)->{return AllocResult::Err(error);}}
+    // Capacity is established before any bucket is changed. The following
+    // pushes cannot allocate; handle their result explicitly under the API.
+    for(mut wrap uint32 i=old;i<target;i++) {
+        match vec_push(uniq mut map.buckets,0){AllocResult::Ok->{},AllocResult::Err(_)->panic()}
+    }
+    rebuild(uniq mut map.*);
+    return AllocResult::Ok;
+}
+
+pub safe io Insert[K,V] insert[K:keys::Equal & hashes::Hash,V:Move](const uniq mut Map[K,V] map,const K key,const V value) {
+    const wrap uint64 hash=hashes::Hash[K]::hash(ref key);
+    match locate(ref map.*,ref key,hash) {
+        Probe::Found(_,_)->{return Insert[K,V]::Occupied(Entry[K,V]{hash=hash,key=key,value=value});},_->{}
+    }
+    const Entry[K,V] entry=Entry[K,V]{hash=hash,key=key,value=value};
+    match reserve(uniq mut map.*,1) {
+        AllocResult::Err(const error)->{return Insert[K,V]::Allocation(error,entry);},AllocResult::Ok->{}
+    }
+    match locate(ref map.*,ref entry.key,hash) {
+        Probe::Vacant(const slot)->{
+            const wrap uint32 index=size(ref map.*);
+            match vec_insert(uniq mut map.entries,index,entry) {
+                VecInsert[Entry[K,V]]::Ok->{
+                    const UniqSlice[wrap uint32] buckets=vec_uniq(uniq mut map.buckets);
+                    if(buckets[slot]==0){map.used+=1;}
+                    buckets[slot]=index+1;
+                    return Insert[K,V]::Inserted;
+                },
+                VecInsert[Entry[K,V]]::Allocation(const error,const returned)->{return Insert[K,V]::Allocation(error,returned);},
+                VecInsert[Entry[K,V]]::OutOfBounds(_)->panic()
+            }
+        },_->panic()
+    }
+}
+
+pub safe io VecPop[Entry[K,V]] remove[K:keys::Equal & hashes::Hash,V:Move](const uniq mut Map[K,V] map,const ref K key) {
+    const wrap uint64 hash=hashes::Hash[K]::hash(key);
+    match locate(ref map.*,key,hash) {
+        Probe::Found(const index,const slot)->{
+            const wrap uint32 last=size(ref map.*)-1;
+            const Slice[Entry[K,V]] entries=view(ref map.*);
+            const wrap uint64 last_hash=entries[last].hash;
+            const UniqSlice[wrap uint32] buckets=vec_uniq(uniq mut map.buckets);
+            if(index!=last) {
+                const wrap uint32 mask=len(buckets)-1;
+                mut wrap uint32 moved=narrow[wrap uint32](last_hash)&mask;
+                for(mut wrap uint32 steps=0;steps<len(buckets);steps++) {
+                    if(buckets[moved]==last+1){buckets[moved]=index+1;break;}
+                    moved=(moved+1)&mask;
+                }
+            }
+            buckets[slot]=4294967295;
+            return vec_swap_remove(uniq mut map.entries,index);
+        },_->{return VecPop[Entry[K,V]]::Empty;}
+    }
+}
+
+pub safe io void clear[K:Move,V:Move](const uniq mut Map[K,V] map) {
+    vec_clear(uniq mut map.entries);
+    const UniqSlice[wrap uint32] buckets=vec_uniq(uniq mut map.buckets);
+    for(mut wrap uint32 i=0;i<len(buckets);i++){buckets[i]=0;}
+    map.used=0;
+}

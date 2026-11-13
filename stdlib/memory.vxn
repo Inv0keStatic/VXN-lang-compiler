@@ -1,0 +1,14 @@
+// The initial system-allocator API is embedded in the compiler prelude.
+choice AllocError { OutOfMemory }
+choice BoxResult[T] { Ok(Box[T]), Err(AllocError) }
+choice VecResult[T] { Ok(Vec[T]), Err(AllocError) }
+choice VecPop[T] { Some(T), Empty }
+choice AllocResult { Ok, Err(AllocError) }
+// Failure preserves the vector and returns ownership of the supplied element.
+choice VecInsert[T] { Ok, OutOfBounds(T), Allocation(AllocError, T) }
+// Type arguments remain owned types; the payload itself is a shared borrow.
+choice RefOption[T: Move] { Some(ref T), None }
+choice RefResult[T: Move, E: Copy] { Ok(ref T), Err(E) }
+choice SliceResult[T: Move, E: Copy] { Ok(Slice[T]), Err(E) }
+// Intrinsic affine result: only uniq_split constructs it. Failure returns input.
+choice SplitResult[T: Move] { Ok(UniqSlice[T], UniqSlice[T]), Err(UniqSlice[T]) }

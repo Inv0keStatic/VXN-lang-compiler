@@ -1,0 +1,22 @@
+import std.hashmap as maps;
+safe io void main(){
+    match maps::create[String,Box[uint32]]() {
+        maps::MapResult[String,Box[uint32]]::Ok(mut map)->{
+            match string_from_str("kept") {
+                StringAlloc::Ok(const key)->{
+                    match box_new[uint32](42) {
+                        BoxResult[uint32]::Ok(const value)->{
+                            match maps::insert(uniq mut map,key,value) {
+                                maps::Insert[String,Box[uint32]]::Allocation(_,const returned)->{
+                                    output(str_equal(string_view(ref returned.key),"kept"));
+                                    output(box_into_inner(returned.value));
+                                    output(maps::size(ref map));
+                                },_->panic()
+                            }
+                        },_->panic()
+                    }
+                },_->panic()
+            }
+        },_->panic()
+    }
+}

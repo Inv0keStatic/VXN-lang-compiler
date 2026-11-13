@@ -1,0 +1,19 @@
+import math.constants::{dimensions};
+
+pub struct Vec2 {
+    float64 x;
+    float64 y;
+}
+
+pub safe pure float64 dot(const ref Vec2 a, const ref Vec2 b) {
+    return a.x * b.x + a.y * b.y;
+}
+
+pub safe pure uint32 size() {
+    return dimensions;
+}
+
+// Module-private; importing this file does not expose the helper.
+safe pure bool is_zero(const ref Vec2 v) {
+    return v.x == 0.0 && v.y == 0.0;
+}

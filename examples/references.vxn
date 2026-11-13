@@ -1,0 +1,27 @@
+struct Quote {
+    wrap uint32 price;
+}
+
+pub safe pure ref Quote better(
+    const ref Quote a,
+    const ref Quote b
+) from(a, b) {
+    if (a.price >= b.price) { return a; }
+    return b;
+}
+
+safe pure ref wrap uint32 price_of(const ref Quote quote) {
+    return ref quote.price;
+}
+
+safe io void main() {
+    mut Quote first = Quote { price = 40 };
+    const Quote second = Quote { price = 42 };
+    {
+        const ref Quote selected = better(ref first, ref second);
+        output(selected.price);
+        output(price_of(selected).*);
+    }
+    first.price = 50;
+    output(better(ref first, ref second).price);
+}

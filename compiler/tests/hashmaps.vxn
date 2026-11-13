@@ -1,0 +1,42 @@
+import std.hash;
+import std.hashmap as maps;
+
+safe io void main() {
+    output(hash::text(""));
+    output(hash::text("a"));
+    output(hash::text("foobar"));
+    match maps::create[uint32,uint32]() {
+        maps::MapResult[uint32,uint32]::Ok(mut map)->{
+            for(mut uint32 i=0;i<100;i++) {
+                match maps::insert(uniq mut map,i,i) {
+                    maps::Insert[uint32,uint32]::Inserted->{},_->panic()
+                }
+            }
+            output(maps::size(ref map));
+            for(mut uint32 i=0;i<100;i++) {
+                match maps::get(ref map,ref i) {
+                    RefOption[uint32]::Some(const value)->{if(value.*!=i){panic();}},_->panic()
+                }
+            }
+            for(mut uint32 i=0;i<100;i+=2) {
+                match maps::remove(uniq mut map,ref i) {
+                    VecPop[maps::Entry[uint32,uint32]]::Some(const entry)->{if(entry.key!=i||entry.value!=i){panic();}},_->panic()
+                }
+            }
+            output(maps::size(ref map));
+            for(mut uint32 i=0;i<100;i++) {
+                if(maps::contains(ref map,ref i)!=(i%2==1)){panic();}
+            }
+            for(mut uint32 i=0;i<100;i+=2) {
+                match maps::insert(uniq mut map,i,i){maps::Insert[uint32,uint32]::Inserted->{},_->panic()}
+            }
+            output(maps::size(ref map));
+            const uint32 key=42;
+            match maps::get(ref map,ref key){RefOption[uint32]::Some(const value)->output(value.*),_->panic()}
+            match maps::insert(uniq mut map,42,999){maps::Insert[uint32,uint32]::Occupied(const entry)->output(entry.value),_->panic()}
+            maps::clear(uniq mut map);
+            output(maps::size(ref map));
+            output(maps::contains(ref map,ref key));
+        },_->panic()
+    }
+}

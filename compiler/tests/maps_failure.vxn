@@ -1,0 +1,18 @@
+import std.map as map;
+
+safe io void main() {
+    match map::create[uint32, Box[uint32]]() {
+        map::MapResult[uint32, Box[uint32]]::Ok(mut values) -> {
+            match box_new[uint32](42) {
+                BoxResult[uint32]::Ok(const value) -> {
+                    match map::insert(uniq mut values, 7, value) {
+                        map::Insert[uint32, Box[uint32]]::Allocation(_, const returned) -> {
+                            output(returned.key); output(box_into_inner(returned.value));
+                            output(map::size(ref values));
+                        }, _ -> panic()
+                    }
+                }, _ -> panic()
+            }
+        }, map::MapResult[uint32, Box[uint32]]::Err(_) -> output(11)
+    }
+}

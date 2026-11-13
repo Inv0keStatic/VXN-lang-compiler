@@ -1,0 +1,12 @@
+safe wrap uint32 mark(const wrap uint32 value) {
+    output(value);
+    return value;
+}
+
+safe pure wrap uint32 add(const wrap uint32 a, const wrap uint32 b) {
+    return a + b;
+}
+
+safe io void main() {
+    output(add(mark(1), mark(2)) + mark(3));
+}

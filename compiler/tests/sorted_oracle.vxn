@@ -1,0 +1,76 @@
+import std.order as keys;
+import std.sortedmap as maps;
+import std.sortedset as sets;
+
+struct OrderedKey { wrap uint32 number; }
+impl keys::Order[OrderedKey] {
+    safe pure hot keys::Ordering compare(const ref OrderedKey left,const ref OrderedKey right) {
+        if(left.number<right.number){return keys::Ordering::Less;}
+        if(left.number>right.number){return keys::Ordering::Greater;}
+        return keys::Ordering::Equal;
+    }
+}
+
+pub safe io void check(const wrap uint32 rounds) {
+    match maps::create[OrderedKey,wrap uint32]() {
+        maps::MapResult[OrderedKey,wrap uint32]::Ok(mut map)->{
+            mut bool[32] present={false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,
+                                  false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false};
+            mut wrap uint32[32] expected={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+            mut wrap uint32 random=123456789;
+            for(mut wrap uint32 step=0;step<rounds;step++) {
+                random=random*1664525+1013904223;
+                const wrap uint32 index=(random>>8)&31;
+                const OrderedKey key=OrderedKey{number=index};
+                const wrap uint32 action=(random>>16)%3;
+                if(action==0) {
+                    match maps::insert(uniq mut map,key,step) {
+                        maps::Insert[OrderedKey,wrap uint32]::Inserted->{if(present[index]){panic();}present[index]=true;expected[index]=step;},
+                        maps::Insert[OrderedKey,wrap uint32]::Occupied(const returned)->{if(!present[index]||returned.value!=step){panic();}},_->panic()
+                    }
+                } else if(action==1) {
+                    match maps::remove(uniq mut map,ref key) {
+                        VecPop[maps::Entry[OrderedKey,wrap uint32]]::Some(const entry)->{
+                            if(!present[index]||entry.key.number!=index||entry.value!=expected[index]){panic();}present[index]=false;
+                        },
+                        VecPop[maps::Entry[OrderedKey,wrap uint32]]::Empty->{if(present[index]){panic();}}
+                    }
+                } else {
+                    match maps::get(ref map,ref key) {
+                        RefOption[wrap uint32]::Some(const value)->{if(!present[index]||value.*!=expected[index]){panic();}},
+                        RefOption[wrap uint32]::None->{if(present[index]){panic();}}
+                    }
+                }
+                mut wrap uint32 count=0;
+                for(mut wrap uint32 i=0;i<32;i++) {
+                    const OrderedKey each=OrderedKey{number=i};
+                    if(maps::contains(ref map,ref each)!=present[i]){panic();}
+                    if(present[i]){count+=1;}
+                }
+                if(maps::size(ref map)!=count){panic();}
+                const Slice[maps::Entry[OrderedKey,wrap uint32]] ordered=maps::view(ref map);
+                for(mut wrap uint32 i=1;i<len(ordered);i++) {
+                    if(ordered[i-1].key.number>=ordered[i].key.number){panic();}
+                }
+            }
+            output(true);
+        },_->panic()
+    }
+    match sets::create[OrderedKey]() {
+        sets::SetResult[OrderedKey]::Ok(mut set)->{
+            for(mut wrap uint32 i=0;i<50;i++){
+                match sets::insert(uniq mut set,OrderedKey{number=i}){sets::Insert[OrderedKey]::Inserted->{},_->panic()}
+            }
+            for(mut wrap uint32 i=0;i<50;i++){
+                match sets::insert(uniq mut set,OrderedKey{number=i}){sets::Insert[OrderedKey]::Present(const key)->{if(key.number!=i){panic();}},_->panic()}
+            }
+            for(mut wrap uint32 i=0;i<50;i++){
+                const OrderedKey key=OrderedKey{number=i};
+                match sets::remove(uniq mut set,ref key){VecPop[OrderedKey]::Some(const removed)->{if(removed.number!=i){panic();}},_->panic()}
+            }
+            output(sets::size(ref set));
+        },_->panic()
+    }
+}
+
+safe io void main(){check(32);}

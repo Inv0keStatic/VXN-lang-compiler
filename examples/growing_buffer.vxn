@@ -1,0 +1,19 @@
+// Write 2,049 binary bytes, cycling through all byte values.
+// Redirect stdout to a file when running this example.
+safe io void main() {
+    match vec_new[wrap uint8]() {
+        VecResult[wrap uint8]::Ok(mut bytes) -> {
+            for (mut wrap uint32 i = 0; i < 2049; i++) {
+                match vec_push(uniq mut bytes, narrow[wrap uint8](i)) {
+                    AllocResult::Ok -> {},
+                    AllocResult::Err(const error) -> { panic(); }
+                }
+            }
+            match io_write(io_stdout(), vec_slice(ref bytes)) {
+                IoResult::Ok -> {},
+                IoResult::Error(const error) -> { panic(); }
+            }
+        },
+        VecResult[wrap uint8]::Err(const error) -> { panic(); }
+    }
+}

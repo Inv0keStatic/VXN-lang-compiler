@@ -1,0 +1,33 @@
+import std.equal as keys;
+import std.hash as hashes;
+import std.hashmap as maps;
+
+pub struct Set[T] { maps::Map[T,bool] map; }
+pub choice SetResult[T] { Ok(Set[T]), Err(AllocError) }
+pub choice Insert[T] { Inserted, Present(T), Allocation(AllocError,T) }
+
+pub safe io nopanic SetResult[T] create[T:Move]() {
+    return match maps::create[T,bool]() {
+        maps::MapResult[T,bool]::Ok(const map)->SetResult[T]::Ok(Set[T]{map=map}),
+        maps::MapResult[T,bool]::Err(const error)->SetResult[T]::Err(error)
+    };
+}
+pub safe pure hot wrap uint32 size[T:Move](const ref Set[T] set)=maps::size(ref set.map);
+pub safe pure hot wrap uint32 capacity[T:Move](const ref Set[T] set)=maps::capacity(ref set.map);
+pub safe io AllocResult reserve[T:Move](const uniq mut Set[T] set,const wrap uint32 additional)=maps::reserve(uniq mut set.map,additional);
+pub safe io void clear[T:Move](const uniq mut Set[T] set)=maps::clear(uniq mut set.map);
+pub safe pure hot bool contains[T:keys::Equal & hashes::Hash](const ref Set[T] set,const ref T value)=maps::contains(ref set.map,value);
+
+pub safe io Insert[T] insert[T:keys::Equal & hashes::Hash](const uniq mut Set[T] set,const T value) {
+    return match maps::insert(uniq mut set.map,value,false) {
+        maps::Insert[T,bool]::Inserted->Insert[T]::Inserted,
+        maps::Insert[T,bool]::Occupied(const returned)->Insert[T]::Present(returned.key),
+        maps::Insert[T,bool]::Allocation(const error,const returned)->Insert[T]::Allocation(error,returned.key)
+    };
+}
+pub safe io VecPop[T] remove[T:keys::Equal & hashes::Hash](const uniq mut Set[T] set,const ref T value) {
+    return match maps::remove(uniq mut set.map,value) {
+        VecPop[maps::Entry[T,bool]]::Some(const returned)->VecPop[T]::Some(returned.key),
+        VecPop[maps::Entry[T,bool]]::Empty->VecPop[T]::Empty
+    };
+}

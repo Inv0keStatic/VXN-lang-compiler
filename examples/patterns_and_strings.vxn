@@ -1,0 +1,26 @@
+// Build UTF-8 text, then classify an error with nested patterns and a guard.
+safe nopanic StringAlloc greeting(const str name) {
+    mut String result = string_from_str("Hello, ")?;
+    match string_append(uniq mut result, name) {
+        AllocResult::Ok -> {},
+        AllocResult::Err(const error) -> { return StringAlloc::Err(error); }
+    }
+    return StringAlloc::Ok(result);
+}
+
+safe io void main() {
+    match greeting("VXN") {
+        StringAlloc::Ok(mut text) -> {
+            match string_push_scalar(uniq mut text, 0x1f30d) {
+                StringEditResult::Ok -> {},
+                StringEditResult::Err(StringEditError::InvalidScalar(const value))
+                    if value > 0x10ffff -> { output(false); return; },
+                StringEditResult::Err(_) -> { output(false); return; }
+            }
+            io_write(io_stdout(), str_bytes(string_view(ref text)));
+            io_write(io_stdout(), str_bytes("\n"));
+            output(str_equal(string_view(ref text), "Hello, VXN\u{1f30d}"));
+        },
+        StringAlloc::Err(_) -> { output(false); }
+    }
+}

@@ -1,0 +1,22 @@
+safe pure wrap uint64 factorial(const wrap uint64 n) {
+    if (n == 0) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+safe pure wrap uint64 fibonacci(const wrap uint32 n) {
+    mut wrap uint64 a = 0;
+    mut wrap uint64 b = 1;
+    for (mut wrap uint32 i = 0; i < n; i++) {
+        const wrap uint64 next = a + b;
+        a = b;
+        b = next;
+    }
+    return a;
+}
+
+safe io nopanic void main() {
+    output(factorial(10));
+    output(fibonacci(20));
+}

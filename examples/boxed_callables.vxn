@@ -1,0 +1,45 @@
+// Explicit, fallible allocation hides the concrete capture layout.
+safe nopanic BoxResult[DynFn[safe pure fn()->T]] remember[T](const T value) {
+    return box_fn[safe pure fn()->T](fn()->T { return value; });
+}
+
+safe nopanic BoxResult[DynFn[safe hot fn mut()->wrap uint32]] counter(
+    mut wrap uint32 value
+) {
+    return box_fn[safe hot fn mut()->wrap uint32](fn()->wrap uint32 {
+        value += 1;
+        return value;
+    });
+}
+
+safe nopanic BoxResult[DynFn[safe nopanic fn once()->Box[uint32]]] owned() {
+    const Box[uint32] value = box_new[uint32](42)?;
+    return box_fn[safe nopanic fn once()->Box[uint32]](fn()->Box[uint32] {
+        return value;
+    });
+}
+
+safe io void main() {
+    match remember(42) {
+        BoxResult[DynFn[safe pure fn()->uint32]]::Ok(const callback) -> {
+            let const view = fn_ref[safe pure fn()->uint32](ref callback);
+            output(view());
+        },
+        BoxResult[DynFn[safe pure fn()->uint32]]::Err(const error) -> output(999)
+    }
+    match counter(40) {
+        BoxResult[DynFn[safe hot fn mut()->wrap uint32]]::Ok(mut callback) -> {
+            output(callback());
+            let const view = fn_uniq[safe hot fn mut()->wrap uint32](uniq mut callback);
+            output(view());
+        },
+        BoxResult[DynFn[safe hot fn mut()->wrap uint32]]::Err(const error) -> output(999)
+    }
+    match owned() {
+        BoxResult[DynFn[safe nopanic fn once()->Box[uint32]]]::Ok(const callback) -> {
+            const Box[uint32] result = callback();
+            output(box_ref(ref result).*);
+        },
+        BoxResult[DynFn[safe nopanic fn once()->Box[uint32]]]::Err(const error) -> output(999)
+    }
+}

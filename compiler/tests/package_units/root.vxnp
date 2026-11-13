@@ -1,0 +1,3 @@
+package unit_application
+module app = "main.vxn"
+dependency dep = "library.vxnp"

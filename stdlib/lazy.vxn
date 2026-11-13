@@ -1,0 +1,7 @@
+// Compiler-sealed state: constructors and pattern inspection are not public.
+// F retains the concrete thunk's representation, effects and invocation mode.
+choice Lazy[T: Move, F: Move] { Pending(F), Ready(T), Empty }
+
+choice LazyError { Cycle }
+choice LazyResult[T] { Ok(T), Err(LazyError) }
+choice RecursiveCell[T] { Pending, Busy, Ready(T) }

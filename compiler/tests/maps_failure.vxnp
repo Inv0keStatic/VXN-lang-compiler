@@ -1,0 +1,4 @@
+package maps_failure_test
+module app = "maps_failure.vxn"
+module std.equal = "../../stdlib/equal.vxn"
+module std.map = "../../stdlib/map.vxn"

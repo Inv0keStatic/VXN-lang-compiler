@@ -1,0 +1,3 @@
+package collections_test
+module app = "collections.vxn"
+module std.deque = "../../stdlib/deque.vxn"

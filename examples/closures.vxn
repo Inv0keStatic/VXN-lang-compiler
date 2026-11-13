@@ -1,0 +1,40 @@
+// Inline environments can leave their creating function without allocation.
+safe pure opaque safe pure fn(const wrap uint32) -> wrap uint32
+adder(const wrap uint32 offset) {
+    return fn(const wrap uint32 value) -> wrap uint32 {
+        return offset + value;
+    };
+}
+
+// Each returned counter owns its state. Calling it needs exclusive access.
+safe pure opaque safe hot fn mut() -> wrap uint32
+counter(mut wrap uint32 count) {
+    return fn() -> wrap uint32 {
+        count += 1;
+        return count;
+    };
+}
+
+// The environment owns this Box and transfers it to its single caller.
+safe nopanic opaque safe nopanic fn once() -> Box[uint32]
+supplier(const Box[uint32] owner) {
+    return fn() -> Box[uint32] { return owner; };
+}
+
+safe io void main() {
+    let const add = adder(40);
+    output(add(2));
+
+    let mut next = counter(40);
+    output(next());
+    output(next());
+
+    match box_new[uint32](42) {
+        BoxResult[uint32]::Ok(const owner) -> {
+            let const take = supplier(owner);
+            let const result = take();
+            output(box_ref(ref result).*);
+        },
+        BoxResult[uint32]::Err(const error) -> output(0)
+    }
+}

@@ -1,0 +1,66 @@
+import std.deque as deque;
+
+safe io void require(const bool condition) {
+    if (!condition) { panic(); }
+}
+
+safe io void inserted(const VecInsert[wrap uint32] result) {
+    match result { VecInsert[wrap uint32]::Ok -> {}, _ -> panic() }
+}
+
+safe io wrap uint32 removed(const VecPop[wrap uint32] result) {
+    return match result { VecPop[wrap uint32]::Some(const value) -> value, _ -> panic() };
+}
+
+safe io void main() {
+    match deque::create[wrap uint32]() {
+        deque::DequeResult[wrap uint32]::Ok(mut queue) -> {
+            require(deque::size(ref queue) == 0);
+            match deque::pop_front(uniq mut queue) { VecPop[wrap uint32]::Empty -> {}, _ -> panic() }
+            match deque::pop_back(uniq mut queue) { VecPop[wrap uint32]::Empty -> {}, _ -> panic() }
+            match deque::reserve(uniq mut queue, 300) { AllocResult::Ok -> {}, _ -> panic() }
+            const wrap uint32 capacity = deque::capacity(ref queue);
+            for (mut wrap uint32 i = 0; i < 100; i++) {
+                inserted(deque::push_back(uniq mut queue, i));
+                inserted(deque::push_front(uniq mut queue, 199 - i));
+            }
+            require(deque::size(ref queue) == 200);
+            const Slice[wrap uint32] view = deque::view(ref queue);
+            require(view[0] == 100);
+            require(view[99] == 199);
+            require(view[100] == 0);
+            require(view[199] == 99);
+            for (mut wrap uint32 i = 0; i < 100; i++) {
+                require(removed(deque::pop_front(uniq mut queue)) == 100 + i);
+                require(removed(deque::pop_back(uniq mut queue)) == 99 - i);
+            }
+            require(deque::size(ref queue) == 0);
+            require(deque::capacity(ref queue) == capacity);
+            inserted(deque::push_back(uniq mut queue, 42));
+            deque::clear(uniq mut queue);
+            require(deque::size(ref queue) == 0);
+            require(deque::capacity(ref queue) == capacity);
+        },
+        _ -> panic()
+    }
+    output(true);
+    match deque::create[Box[uint32]]() {
+        deque::DequeResult[Box[uint32]]::Ok(mut queue) -> {
+            match box_new[uint32](42) {
+                BoxResult[uint32]::Ok(const owner) -> {
+                    match deque::push_front(uniq mut queue, owner) {
+                        VecInsert[Box[uint32]]::Ok -> {},
+                        VecInsert[Box[uint32]]::OutOfBounds(const returned) -> { output(box_ref(ref returned).*); panic(); },
+                        VecInsert[Box[uint32]]::Allocation(_, const returned) -> { output(box_ref(ref returned).*); panic(); }
+                    }
+                },
+                _ -> panic()
+            }
+            match deque::pop_back(uniq mut queue) {
+                VecPop[Box[uint32]]::Some(const owner) -> output(box_into_inner(owner)),
+                _ -> panic()
+            }
+        },
+        _ -> panic()
+    }
+}

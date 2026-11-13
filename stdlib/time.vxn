@@ -1,0 +1,3 @@
+choice TimeError { Unsupported, Unavailable, InvalidDuration }
+choice TimeRead { Seconds(float64), Error(TimeError) }
+choice TimeResult { Ok, Error(TimeError) }

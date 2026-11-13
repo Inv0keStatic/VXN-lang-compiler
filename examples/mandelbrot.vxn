@@ -1,0 +1,108 @@
+struct Complex {
+    float64 real;
+    float64 imaginary;
+}
+
+struct Rgb {
+    wrap uint8 red;
+    wrap uint8 green;
+    wrap uint8 blue;
+}
+
+safe pure wrap uint32 escape_iterations(const Complex c, const wrap uint32 limit) {
+    mut float64 real = 0.0;
+    mut float64 imaginary = 0.0;
+    mut wrap uint32 iteration = 0;
+
+    while (iteration < limit && real * real + imaginary * imaginary <= 4.0) {
+        const float64 next_real = real * real - imaginary * imaginary + c.real;
+        imaginary = 2.0 * real * imaginary + c.imaginary;
+        real = next_real;
+        iteration++;
+    }
+    return iteration;
+}
+
+safe pure Rgb palette(const wrap uint32 iteration, const wrap uint32 limit) {
+    if (iteration == limit) {
+        return Rgb { red = 0, green = 0, blue = 0 };
+    }
+
+    const wrap uint32 band = (iteration * 7) & 255;
+    const float64 t = cast[float64](band) / 255.0;
+    const float64 s = 1.0 - t;
+    return Rgb {
+        red = narrow[wrap uint8](255.0 * 9.0 * s * t * t * t),
+        green = narrow[wrap uint8](255.0 * 15.0 * s * s * t * t),
+        blue = narrow[wrap uint8](255.0 * 8.5 * s * s * s * t)
+    };
+}
+
+safe io void require_io(const IoResult result) {
+    match result {
+        IoResult::Ok -> {},
+        IoResult::Error(const error) -> {
+            io_write(io_stderr(), b"Image I/O failed\n");
+            panic();
+        }
+    }
+}
+
+safe io void write_u32(const IoFile file, const wrap uint32 value) {
+    require_io(io_write(file, {
+        narrow[wrap uint8](value),
+        narrow[wrap uint8](value >> 8),
+        narrow[wrap uint8](value >> 16),
+        narrow[wrap uint8](value >> 24)
+    }));
+}
+
+safe io void bitmap_header(const IoFile file, const wrap uint32 width, const wrap uint32 height) {
+    const wrap uint32 stride = (width * 3 + 3) & 0xffff_fffc;
+    const wrap uint32 image_size = stride * height;
+    require_io(io_write(file, b"BM"));
+    write_u32(file, 54 + image_size);
+    write_u32(file, 0);              // Reserved.
+    write_u32(file, 54);             // Pixel offset.
+    write_u32(file, 40);             // DIB header size.
+    write_u32(file, width);
+    write_u32(file, 0 - height);     // Negative height: top-to-bottom rows.
+    require_io(io_write(file, b"\x01\0\x18\0")); // One plane, 24 bits per pixel.
+    write_u32(file, 0);              // Uncompressed.
+    write_u32(file, image_size);
+    write_u32(file, 0);              // Horizontal resolution unspecified.
+    write_u32(file, 0);              // Vertical resolution unspecified.
+    write_u32(file, 0);              // No palette.
+    write_u32(file, 0);              // All colours important.
+}
+
+safe io void main() {
+    const wrap uint32 width = 800;
+    const wrap uint32 height = 500;
+    const wrap uint32 limit = 256;
+    const float64 view_width = 3.5;
+    const float64 step = view_width / cast[float64](width);
+    const float64 half_height = cast[float64](height) * step * 0.5;
+
+    const IoFile file = match io_create(b"build/mandelbrot.bmp") {
+        IoOpen::Ok(const opened) -> opened,
+        IoOpen::Error(const error) -> panic()
+    };
+    bitmap_header(file, width, height);
+    const wrap uint32 padding = (0 - width * 3) & 3;
+    for (mut wrap uint32 y = 0; y < height; y++) {
+        for (mut wrap uint32 x = 0; x < width; x++) {
+            const Complex c = Complex {
+                real = -2.5 + (cast[float64](x) + 0.5) * step,
+                imaginary = half_height - (cast[float64](y) + 0.5) * step
+            };
+            const Rgb color = palette(escape_iterations(c, limit), limit);
+            require_io(io_write(file, {color.blue, color.green, color.red}));
+        }
+        for (mut wrap uint32 pad = 0; pad < padding; pad++) {
+            require_io(io_write_byte(file, 0));
+        }
+    }
+    require_io(io_close(file));
+    require_io(io_write(io_stdout(), b"Wrote build/mandelbrot.bmp\n"));
+}

@@ -1,0 +1,29 @@
+safe io void require_io(const IoResult result) {
+    match result {
+        IoResult::Ok -> {},
+        IoResult::Error(const error) -> { panic(); }
+    }
+}
+
+safe io IoFile require_open(const IoOpen result) {
+    return match result {
+        IoOpen::Ok(const file) -> file,
+        IoOpen::Error(const error) -> panic()
+    };
+}
+
+safe io void main() {
+    const IoFile file = require_open(io_create(b"build/io-example.bin"));
+    require_io(io_write(file, b"Vxn\0\n\r\x1a\xff"));
+    require_io(io_close(file));
+
+    const IoFile input = require_open(io_open_read(b"build/io-example.bin"));
+    for (;;) {
+        match io_read_byte(input) {
+            IoRead::Byte(const byte) -> { require_io(io_println(io_stdout(), byte)); },
+            IoRead::End -> { break; },
+            IoRead::Error(const error) -> { panic(); }
+        }
+    }
+    require_io(io_close(input));
+}

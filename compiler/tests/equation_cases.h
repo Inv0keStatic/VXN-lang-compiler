@@ -1,0 +1,37 @@
+#define EQUATION_BOX "safe io Box[uint32] make(const uint32 n){return match box_new[uint32](n){BoxResult[uint32]::Ok(const b)->b,_->panic()};}"
+static const Case equation_cases[]={
+    {"ordered recursive function equations","safe wrap uint32 factorial(const wrap uint32 n);factorial(0)=1;factorial(const n)=n*factorial(n-1);safe io void main(){output(factorial(6));}","720\n","",0},
+    {"equations cover parameter combinations","safe pure hot uint32 classify(const bool a,const bool b);classify(false,_)=1;classify(true,false)=2;classify(true,true)=3;safe io void main(){output(classify(false,true));output(classify(true,false));output(classify(true,true));}","1\n2\n3\n","",0},
+    {"equation guards and alternatives","safe pure hot uint32 classify(const wrap sint32 n);classify(-3..=-1)=1;classify(0|2)=2;classify(const n)if n>10=3;classify(_)=4;safe io void main(){output(classify(-2));output(classify(2));output(classify(12));output(classify(5));}","1\n2\n3\n4\n","",0},
+    {"equations retain named defaults and written evaluation order","safe io uint32 mark(const uint32 n){output(n);return n;}safe pure uint32 pick(const uint32 left=7,const uint32 right=42);pick(0,const r)=r;pick(const l,_)=l;safe io void main(){output(pick(right:mark(2),left:mark(1)));output(pick());}","2\n1\n1\n7\n","",0},
+    {"equations support constant stack transfers","safe pure hot wrap uint32 total(const wrap uint32 n,const wrap uint32 acc);total(0,const a)=a;total(const n,const a)=tail total(n-1,a+1);safe io void main(){output(total(2000,0));}","2000\n","",0},
+    {"mutual equation transfers","safe pure hot bool even(const wrap uint32 n);even(0)=true;even(const n)=tail odd(n-1);safe pure hot bool odd(const wrap uint32 n);odd(0)=false;odd(const n)=tail even(n-1);safe io void main(){output(even(2000));output(odd(2001));}","true\ntrue\n","",0},
+    {"generic equation product specialization","safe pure T pick[T](const bool yes,const T left,const T right);pick(true,const a,_)=a;pick(false,_,const b)=b;safe io void main(){output(pick(true,7,42));output(pick(false,false,true));}","7\ntrue\n","",0},
+    {"nested equation products","choice Maybe[T]{None,Some(T)}struct Point{uint32 x;uint32 y;}safe pure uint32 value(const Maybe[Point] p);value(Maybe[Point]::None)=0;value(Maybe[Point]::Some(Point{x=const x,y=_}))=x;safe io void main(){output(value(Maybe[Point]::Some(Point{x=42,y=7})));output(value(Maybe[Point]::None));}","42\n0\n","",0},
+    {"equation blocks and void results","safe io void show(const bool yes);show(true)={output(42);return;};show(false)=output(7);safe io void main(){show(true);show(false);}","42\n7\n","",0},
+    {"zero parameter equation","safe pure hot uint32 answer();answer()=42;safe io void main(){output(answer());}","42\n","",0},
+    {"comptime equations","comptime safe pure wrap uint32 sum(const wrap uint32 n);sum(0)=0;sum(const n)=n+sum(n-1);comptime wrap uint32 answer=sum(9);safe io void main(){output(answer);}","45\n","",0},
+    {"equation ownership commits after guard",EQUATION_BOX "safe io uint32 inspect(const Box[uint32] b);inspect(const b)if box_ref(ref b).*==7=box_into_inner(b);inspect(const b)=box_into_inner(b);safe io void main(){output(inspect(make(42)));output(inspect(make(7)));}","42\n7\n","",0},
+    {"generic owned equations clean discarded parameter",EQUATION_BOX "safe io T pick[T:Move](const bool yes,const T a,const T b);pick(true,const x,_)=x;pick(false,_,const y)=y;safe io void main(){for(mut wrap uint32 i=0;i<200;i++){const Box[uint32] b=pick(true,make(42),make(7));if(box_ref(ref b).*!=42){panic();}}output(42);}","42\n","",0},
+    {"equation shared origins","safe pure ref uint32 pick(const bool yes,const ref uint32 a,const ref uint32 b)from(a,b);pick(true,const x,_)=x;pick(false,_,const y)=y;safe io void main(){const uint32 a=7;const uint32 b=42;output(pick(false,ref a,ref b).*);}","42\n","",0},
+    {"equations bind str and arrays","safe pure uint32 classify(const str text,const bool[2] pair);classify(\"ok\",{true,_})=42;classify(_,_) =7;safe io void main(){output(classify(\"ok\",{true,false}));output(classify(\"no\",{true,true}));}","42\n7\n","",0},
+    {"equations construct deferred computations","safe io uint32 mark(const uint32 n){output(n);return n;}safe io uint32 pick(const bool yes);pick(true)={const lazy uint32 unused=mark(7);return 42;};pick(false)=mark(9);safe io void main(){output(pick(true));output(pick(false));}","42\n9\n9\n","",0},
+};
+static const Bad equation_bad[]={
+    {"safe uint32 f(const bool b);f(true)=1;","non-exhaustive"},
+    {"safe uint32 f(const bool a,const bool b);f(false,_)=0;f(true,false)=1;","non-exhaustive"},
+    {"safe uint32 f(const bool b);f(_)=1;f(true)=2;","unreachable"},
+    {"safe uint32 f(const bool b);f(const b)if true=1;","non-exhaustive"},
+    {"safe uint32 f(const uint32 x);g(const x)=x;","same function"},
+    {"safe uint32 f(const uint32 x);safe pure void main(){}","immediately"},
+    {"safe uint32 f(const uint32 x);f()=1;","every parameter"},
+    {"safe uint32 f(const uint32 x);f(_,_) =1;","too many"},
+    {"safe uint32 f(const uint32 x);f(x)=x;","const or mut"},
+    {"safe uint32 f(const bool a,const bool b);f(const x,const x)=1;","duplicate binding"},
+    {"safe uint32 f(const uint32 x);f(_)=true;","expected checked uint32"},
+    {"safe bool noisy(){output(1);return true;}safe uint32 f(const bool b);f(_)if noisy()=1;f(_)=2;","guard"},
+    {EQUATION_BOX "safe io uint32 f(const Box[uint32] b);f(const x)if box_into_inner(x)==7=1;f(_)=2;","guard"},
+    {"safe uint32 f(const uint32 x);f(const n)=tail n;","tail"},
+    {"safe io void f(const uniq mut uint32 value);f(const x)={x.*=1;};","borrowed fields"},
+};
+#undef EQUATION_BOX

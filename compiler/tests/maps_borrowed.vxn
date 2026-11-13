@@ -1,0 +1,41 @@
+import std.map;
+
+safe io void main() {
+    match map::create[String, Box[uint32]]() {
+        map::MapResult[String, Box[uint32]]::Ok(mut values) -> {
+            match string_from_str("answer") {
+                StringAlloc::Ok(const key) -> {
+                    match box_new[uint32](42) {
+                        BoxResult[uint32]::Ok(const value) -> {
+                            match map::insert(uniq mut values,key,value) {
+                                map::Insert[String,Box[uint32]]::Inserted -> {}, _ -> panic()
+                            }
+                        }, _ -> panic()
+                    }
+                }, _ -> panic()
+            }
+            const str query="answer";
+            let const matches=fn(const ref String key)->bool {
+                return str_equal(string_view(key),query);
+            };
+            match map::get_where(ref values,fn_ref[safe pure fn(const ref String)->bool](ref matches)) {
+                RefOption[Box[uint32]]::Some(const value) -> output(box_ref(value).*),
+                RefOption[Box[uint32]]::None -> panic()
+            }
+            map::clear(uniq mut values);
+            match map::get_where(ref values,fn_ref[safe pure fn(const ref String)->bool](ref matches)) {
+                RefOption[Box[uint32]]::Some(_) -> panic(),
+                RefOption[Box[uint32]]::None -> output(true)
+            }
+        }, _ -> panic()
+    }
+    match map::create[uint32,uint32]() {
+        map::MapResult[uint32,uint32]::Ok(mut values) -> {
+            map::insert(uniq mut values,7,42);
+            const uint32 key=7;
+            match map::get(ref values,ref key) {
+                RefOption[uint32]::Some(const value) -> output(value.*), _ -> panic()
+            }
+        }, _ -> panic()
+    }
+}

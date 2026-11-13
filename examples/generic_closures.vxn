@@ -1,0 +1,44 @@
+// Each concrete closure gets a direct-call specialization. Environments stay inline.
+safe pure hot wrap uint32 apply[
+    F: safe pure hot fn(const wrap uint32) -> wrap uint32
+](const ref F callback, const wrap uint32 value) {
+    return callback(value);
+}
+
+safe hot wrap uint32 twice[
+    F: safe hot fn mut() -> wrap uint32
+](const uniq mut F callback) {
+    callback();
+    return callback();
+}
+
+safe nopanic Box[uint32] take[
+    F: safe nopanic fn once() -> Box[uint32]
+](const F callback) {
+    return callback();
+}
+
+safe io void main() {
+    const wrap uint32 offset = 40;
+    let const add = fn(const wrap uint32 value) -> wrap uint32 {
+        return offset + value;
+    };
+    output(apply(ref add, 2));
+
+    mut wrap uint32 count = 40;
+    let mut next = fn() -> wrap uint32 {
+        count += 1;
+        return count;
+    };
+    output(twice(uniq mut next));
+    output(next());
+
+    match box_new[uint32](42) {
+        BoxResult[uint32]::Ok(const owner) -> {
+            let const supply = fn() -> Box[uint32] { return owner; };
+            const Box[uint32] result = take(supply);
+            output(box_ref(ref result).*);
+        },
+        BoxResult[uint32]::Err(const error) -> output(999)
+    }
+}

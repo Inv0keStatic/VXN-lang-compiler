@@ -1,0 +1,27 @@
+static const Case recursive_lazy_cases[]={
+    {"recursive lazy forward dependencies and caching","safe io uint32 mark(const uint32 n){output(n);return n;}safe io void main(){const uint32 n=40;rec{const eager uint32 seed=n;const lazy uint32 a=try_force(b)?+1;const lazy uint32 b=mark(try_force(seed)?+1);}output(0);output(match try_force(a){LazyResult[uint32]::Ok(const n)->n,_->999});output(match try_force(a){LazyResult[uint32]::Ok(const n)->n,_->999});}","0\n41\n42\n42\n","",0},
+    {"recursive lazy cycle is a typed cached error","safe io uint32 mark(){output(1);return 0;}safe io void main(){rec{const lazy uint32 a=mark()+try_force(b)?;const lazy uint32 b=try_force(a)?;}for(mut wrap uint32 i=0;i<2;i++){output(match try_force(a){LazyResult[uint32]::Ok(_)->false,LazyResult[uint32]::Err(LazyError::Cycle)->true});}}","1\ntrue\ntrue\n","",0},
+    {"recursive lazy self cycle","safe io void main(){rec{const lazy uint32 a=try_force(a)?;}output(match try_force(a){LazyResult[uint32]::Ok(_)->false,LazyResult[uint32]::Err(LazyError::Cycle)->true});}","true\n","",0},
+    {"recursive lazy catches a cycle and completes","safe io void main(){rec{const lazy uint32 a=match try_force(a){LazyResult[uint32]::Err(_)->42,LazyResult[uint32]::Ok(const x)->x};}output(match try_force(a){LazyResult[uint32]::Ok(const x)->x,_->999});output(match try_force(a){LazyResult[uint32]::Ok(const x)->x,_->999});}","42\n42\n","",0},
+    {"recursive lazy generic result","safe io T work[T](const T value){rec{const eager T seed=value;const lazy T a=try_force(seed)?;}return match try_force(a){LazyResult[T]::Ok(const x)->x,_->panic()};}safe io void main(){output(work(42));output(work(true));}","42\ntrue\n","",0},
+    {"recursive lazy effect-free creation and unused cleanup","safe io uint32 noisy(){output(1);return 7;}safe pure uint32 work(){rec{const lazy uint32 a=noisy();}return 42;}safe io void main(){output(work());}","42\n","",0},
+    {"recursive lazy eager snapshots follow source order","safe io uint32 mark(const uint32 n){output(n);return n;}safe io void main(){rec{const eager uint32 a=mark(1);const lazy uint32 b=mark(99);const eager uint32 c=mark(2);}output(match try_force(c){LazyResult[uint32]::Ok(const n)->n,_->999});}","1\n2\n2\n","",0},
+    {"recursive lazy groups are independent across loop iterations","safe io void main(){for(mut wrap uint32 i=0;i<3;i++){rec{const eager wrap uint32 seed=i;const lazy wrap uint32 a=try_force(seed)?;}output(match try_force(a){LazyResult[wrap uint32]::Ok(const n)->n,_->999});}}","0\n1\n2\n","",0},
+    {"recursive lazy unused cycle stays unforced","safe pure uint32 work(){rec{const lazy uint32 a=try_force(a)?;}return 42;}safe io void main(){output(work());}","42\n","",0},
+    {"recursive lazy scalar forcing needs no allocator or panic","safe noalloc nopanic noblock uint32 work(){rec{const lazy uint32 a=42;}return match try_force(a){LazyResult[uint32]::Ok(const n)->n,_->0};}safe io void main(){output(work());}","42\n","",0},
+};
+static const Bad recursive_lazy_bad[]={
+    {"safe io void main(){rec{const lazy uint32 a=match true{const a->try_force(a)?};}}","requires a binding"},
+    {"safe io void main(){rec{const lazy uint32 a=1;}output(a);}","try_force(name)"},
+    {"safe io void main(){const uint32 a=1;try_force(a);}","requires a binding"},
+    {"safe io void main(){rec{const lazy uint32 a=1;}let const f=fn()->uint32{return match try_force(a){LazyResult[uint32]::Ok(const n)->n,_->0};};}","requires a binding"},
+    {"safe io void main(){const uint32 n=42;rec{const lazy uint32 a=n;}}","unknown value"},
+    {"safe io void main(){rec{mut lazy uint32 a=1;}}","const lazy/eager"},
+    {"safe io void main(){rec{const lazy uint32 a=1;const lazy uint32 a=2;}}","duplicate recursive"},
+    {"safe io void main(){rec{}}","cannot be empty"},
+    {"safe io void main(){rec{const lazy Box[uint32] a=panic();}}","Copy results"},
+    {"safe io void main(){rec{const lazy ref uint32 a=panic();}}","Copy results"},
+    {"safe pure uint32 work(){rec{const lazy uint32 a=1;}return match try_force(a){LazyResult[uint32]::Ok(const n)->n,_->0};}","violates `pure`"},
+    {"safe io void main(){RecursiveCell[uint32]::Pending;}","state is sealed"},
+    {"safe io void main(){rec{const lazy uint32 a=1;}{rec{const lazy uint32 b=2;}}try_force(b);}","requires a binding"},
+};

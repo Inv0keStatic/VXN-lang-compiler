@@ -1,0 +1,28 @@
+// Generic factories return concrete inline closures behind callable contracts.
+struct Pair { uint32 first; uint32 second; }
+
+safe pure opaque safe pure hot fn()->T make[T](const T value) {
+    return fn()->T { return value; };
+}
+
+safe pure opaque safe pure hot fn()->T forward[T](const T value) {
+    return make(value);
+}
+
+safe nopanic opaque safe nopanic fn once()->T take[T:Move](const T value) {
+    return fn()->T { return value; };
+}
+
+safe io void main() {
+    let const pair = make(Pair { first=7, second=42 });
+    output(pair().second);
+    output(forward(7)());
+    match box_new[uint32](42) {
+        BoxResult[uint32]::Ok(const value) -> {
+            let const consume = take(value);
+            let const result = consume();
+            output(box_ref(ref result).*);
+        },
+        BoxResult[uint32]::Err(const error) -> output(999)
+    }
+}

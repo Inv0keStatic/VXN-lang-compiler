@@ -1,0 +1,12 @@
+import std.hashmap as maps;
+safe io void main(){
+    match maps::create[uint32,uint32]() {
+        maps::MapResult[uint32,uint32]::Ok(mut map)->{
+            match maps::insert(uniq mut map,7,42) {
+                maps::Insert[uint32,uint32]::Allocation(_,const returned)->{
+                    output(returned.key);output(returned.value);output(maps::size(ref map));
+                },_->panic()
+            }
+        },maps::MapResult[uint32,uint32]::Err(_)->output(99)
+    }
+}

@@ -1,0 +1,30 @@
+safe void show_pixel(const Canvas canvas, const wrap sint32 x, const wrap sint32 y) {
+    match canvas_read_pixel(canvas, x, y) {
+        PixelRead::Ok(const color) -> {
+            output(color.r);
+            output(color.g);
+            output(color.b);
+        },
+        PixelRead::Error(const error) -> { panic(); }
+    }
+}
+safe io void main() {
+    match canvas_create(16, 16) {
+        CanvasOpen::Ok(const canvas) -> {
+            match draw_clear(canvas, rgb(20, 30, 40)) {
+                GfxResult::Ok -> {},
+                GfxResult::Error(const error) -> { panic(); }
+            }
+            match draw_rectangle(canvas, 4, 4, 8, 8, rgb(80, 200, 160)) {
+                GfxResult::Ok -> {},
+                GfxResult::Error(const error) -> { panic(); }
+            }
+            show_pixel(canvas, 8, 8);
+            match canvas_close(canvas) {
+                GfxResult::Ok -> {},
+                GfxResult::Error(const error) -> { panic(); }
+            }
+        },
+        CanvasOpen::Error(const error) -> { panic(); }
+    }
+}

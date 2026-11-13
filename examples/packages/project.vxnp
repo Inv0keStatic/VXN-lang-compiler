@@ -1,0 +1,4 @@
+package package_demo
+dependency math = "math/package.vxnp"
+dependency adapter = "adapter/package.vxnp"
+module app = "main.vxn"

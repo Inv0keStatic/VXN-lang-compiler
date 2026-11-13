@@ -1,0 +1,35 @@
+// Literal bodies are checked once against T's bounds, then specialized.
+struct Pair {
+    uint32 first;
+    uint32 second;
+}
+
+safe pure T identity[T](const T value) {
+    let const local = fn(const T input) -> T { return input; };
+    return local(value);
+}
+
+safe pure T captured[T](const T value) {
+    let const outer = fn() -> T {
+        let const inner = fn() -> T { return value; };
+        return inner();
+    };
+    return outer();
+}
+
+safe nopanic T take[T: Move](const T value) {
+    let const supply = fn() -> T { return value; };
+    return supply();
+}
+
+safe io void main() {
+    output(identity(42));
+    output(captured(Pair { first = 7, second = 42 }).second);
+    match box_new[uint32](42) {
+        BoxResult[uint32]::Ok(const owner) -> {
+            let const result = take(owner);
+            output(box_ref(ref result).*);
+        },
+        BoxResult[uint32]::Err(const error) -> output(999)
+    }
+}

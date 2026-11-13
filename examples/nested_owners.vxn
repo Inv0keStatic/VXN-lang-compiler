@@ -1,0 +1,17 @@
+choice DemoResult { Ok(uint32), Err(AllocError) }
+
+safe nopanic DemoResult demo() {
+    const Box[uint32] inner = box_new[uint32](40)?;
+    const Box[Box[uint32]] outer = box_new[Box[uint32]](inner)?;
+    mut Box[Box[uint32]] moved = outer;
+    box_uniq(box_uniq(uniq mut moved)).* = 42;
+    return DemoResult::Ok(box_ref(box_ref(ref moved)).*);
+    // Both allocations are released when moved leaves scope.
+}
+
+safe io nopanic void main() {
+    match demo() {
+        DemoResult::Ok(const value) -> output(value),
+        DemoResult::Err(const error) -> { io_write(io_stderr(), b"Allocation failed\n"); }
+    }
+}

@@ -1,0 +1,22 @@
+import common::{Complex, position};
+import procedural::{julia};
+import renderer::{require_io};
+
+safe io void main() {
+    const IoFile file = match io_create(b"build/procedural-orbits.ppm") {
+        IoOpen::Ok(const opened) -> opened, IoOpen::Error(_) -> panic()
+    };
+    require_io(io_write(file, b"P6\n960 360\n255\n"));
+    for (mut wrap uint32 y = 0; y < 360; y++) {
+        for (mut wrap uint32 panel = 0; panel < 3; panel++) {
+            mut Complex c = Complex { x = -0.8, y = 0.156 };
+            if (panel == 1) { c = Complex { x = -0.4, y = 0.6 }; }
+            if (panel == 2) { c = Complex { x = 0.285, y = 0.01 }; }
+            for (mut wrap uint32 x = 0; x < 320; x++) {
+                const Color color = julia(position(x, y), c);
+                require_io(io_write(file, {color.r, color.g, color.b}));
+            }
+        }
+    }
+    require_io(io_close(file));
+}

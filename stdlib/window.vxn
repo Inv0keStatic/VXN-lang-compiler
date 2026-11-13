@@ -1,0 +1,99 @@
+choice WindowMode { Visible, Hidden }
+struct WindowFrame {
+    bool should_close;
+    wrap uint32 width; wrap uint32 height;
+    wrap uint32 window_width; wrap uint32 window_height;
+    wrap sint32 mouse_x; wrap sint32 mouse_y;
+    float64 scroll; float64 delta_seconds;
+    bool[32] keys_down; bool[32] keys_pressed;
+    bool[3] buttons_down; bool[3] buttons_pressed;
+}
+choice FrameRead { Ok(WindowFrame), Error(GfxError) }
+choice Key { Left, Right, Up, Down, Escape, Space, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z }
+choice MouseButton { Left, Right, Middle }
+pub safe pure bool key_down(const ref WindowFrame frame noescape, const Key button) {
+    return match button {
+        Key::Left -> frame.keys_down[0],
+        Key::Right -> frame.keys_down[1],
+        Key::Up -> frame.keys_down[2],
+        Key::Down -> frame.keys_down[3],
+        Key::Escape -> frame.keys_down[4],
+        Key::Space -> frame.keys_down[5],
+        Key::A -> frame.keys_down[6],
+        Key::B -> frame.keys_down[7],
+        Key::C -> frame.keys_down[8],
+        Key::D -> frame.keys_down[9],
+        Key::E -> frame.keys_down[10],
+        Key::F -> frame.keys_down[11],
+        Key::G -> frame.keys_down[12],
+        Key::H -> frame.keys_down[13],
+        Key::I -> frame.keys_down[14],
+        Key::J -> frame.keys_down[15],
+        Key::K -> frame.keys_down[16],
+        Key::L -> frame.keys_down[17],
+        Key::M -> frame.keys_down[18],
+        Key::N -> frame.keys_down[19],
+        Key::O -> frame.keys_down[20],
+        Key::P -> frame.keys_down[21],
+        Key::Q -> frame.keys_down[22],
+        Key::R -> frame.keys_down[23],
+        Key::S -> frame.keys_down[24],
+        Key::T -> frame.keys_down[25],
+        Key::U -> frame.keys_down[26],
+        Key::V -> frame.keys_down[27],
+        Key::W -> frame.keys_down[28],
+        Key::X -> frame.keys_down[29],
+        Key::Y -> frame.keys_down[30],
+        Key::Z -> frame.keys_down[31]
+    };
+}
+pub safe pure bool key_pressed(const ref WindowFrame frame noescape, const Key button) {
+    return match button {
+        Key::Left -> frame.keys_pressed[0],
+        Key::Right -> frame.keys_pressed[1],
+        Key::Up -> frame.keys_pressed[2],
+        Key::Down -> frame.keys_pressed[3],
+        Key::Escape -> frame.keys_pressed[4],
+        Key::Space -> frame.keys_pressed[5],
+        Key::A -> frame.keys_pressed[6],
+        Key::B -> frame.keys_pressed[7],
+        Key::C -> frame.keys_pressed[8],
+        Key::D -> frame.keys_pressed[9],
+        Key::E -> frame.keys_pressed[10],
+        Key::F -> frame.keys_pressed[11],
+        Key::G -> frame.keys_pressed[12],
+        Key::H -> frame.keys_pressed[13],
+        Key::I -> frame.keys_pressed[14],
+        Key::J -> frame.keys_pressed[15],
+        Key::K -> frame.keys_pressed[16],
+        Key::L -> frame.keys_pressed[17],
+        Key::M -> frame.keys_pressed[18],
+        Key::N -> frame.keys_pressed[19],
+        Key::O -> frame.keys_pressed[20],
+        Key::P -> frame.keys_pressed[21],
+        Key::Q -> frame.keys_pressed[22],
+        Key::R -> frame.keys_pressed[23],
+        Key::S -> frame.keys_pressed[24],
+        Key::T -> frame.keys_pressed[25],
+        Key::U -> frame.keys_pressed[26],
+        Key::V -> frame.keys_pressed[27],
+        Key::W -> frame.keys_pressed[28],
+        Key::X -> frame.keys_pressed[29],
+        Key::Y -> frame.keys_pressed[30],
+        Key::Z -> frame.keys_pressed[31]
+    };
+}
+pub safe pure bool mouse_down(const ref WindowFrame frame noescape, const MouseButton button) {
+    return match button {
+        MouseButton::Left -> frame.buttons_down[0],
+        MouseButton::Right -> frame.buttons_down[1],
+        MouseButton::Middle -> frame.buttons_down[2]
+    };
+}
+pub safe pure bool mouse_pressed(const ref WindowFrame frame noescape, const MouseButton button) {
+    return match button {
+        MouseButton::Left -> frame.buttons_pressed[0],
+        MouseButton::Right -> frame.buttons_pressed[1],
+        MouseButton::Middle -> frame.buttons_pressed[2]
+    };
+}

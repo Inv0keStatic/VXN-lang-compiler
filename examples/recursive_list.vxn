@@ -1,0 +1,33 @@
+// Build and consume a recursive list. Every Box is moved exactly once.
+choice List[T] {
+    End,
+    Link(T, Box[List[T]])
+}
+
+choice Answer { Ok(wrap uint32), Err(AllocError) }
+
+safe nopanic Answer sum_list() {
+    mut List[wrap uint32] list = List[wrap uint32]::End;
+    for (mut wrap uint32 i = 0; i < 1000; i++) {
+        const Box[List[wrap uint32]] tail = box_new[List[wrap uint32]](list)?;
+        list = List[wrap uint32]::Link(42, tail);
+    }
+
+    mut wrap uint32 total = 0;
+    while (true) {
+        match list {
+            List[wrap uint32]::End -> { return Answer::Ok(total); },
+            List[wrap uint32]::Link(const value, const tail) -> {
+                total += value;
+                list = box_into_inner(tail);
+            }
+        }
+    }
+}
+
+safe io nopanic void main() {
+    match sum_list() {
+        Answer::Ok(const total) -> output(total),
+        Answer::Err(const error) -> output(0)
+    }
+}

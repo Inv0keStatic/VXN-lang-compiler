@@ -1,0 +1,22 @@
+VXN v1 third-party notices
+=========================
+
+Berkeley SoftFloat, Release 3e
+  Source: third_party/SoftFloat-3e/
+  License: third_party/SoftFloat-3e/COPYING.txt (included unchanged)
+  Copyright and license notices in the source files are retained.
+
+Windows platform adaptation
+  Source: stdlib/runtime/platform_win32.h
+  Provenance and retained raylib notices: stdlib/PLATFORM_SOURCES.txt
+  VXN does not link raylib, GLFW or SDL.
+
+Windows binary toolchain runtime notices
+  The supplied Windows build uses MinGW-w64 GCC 15.2.0 with statically linked
+  compiler support and winpthreads. Original notices from that toolchain are
+  included in third_party/toolchain-licenses/{gcc,mingw-w64,winpthreads}/.
+  GCC's runtime exception is included alongside its GPL text. These notices
+  concern the toolchain runtimes, not a project-wide license choice for VXN.
+
+No project-wide license for VXN has been supplied by its owner. The inclusion of
+third-party licenses does not apply those licenses to the rest of VXN.

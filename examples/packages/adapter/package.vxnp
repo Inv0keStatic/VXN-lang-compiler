@@ -1,0 +1,3 @@
+package geometry_adapter
+dependency geometry = "../math/package.vxnp"
+module bridge = "bridge.vxn"

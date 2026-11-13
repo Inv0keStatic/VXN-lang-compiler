@@ -1,0 +1,3 @@
+package collections_failure_test
+module app = "collections_failure.vxn"
+module std.deque = "../../stdlib/deque.vxn"

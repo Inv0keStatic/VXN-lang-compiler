@@ -1,0 +1,23 @@
+safe pure hot ParseResult[float32] number(const str text) {
+    return ParseResult[float32]::Ok(parse_float[float32](str_bytes(text))?);
+}
+
+safe io void main() {
+    match number("1.0000000596046447753906250000001") {
+        ParseResult[float32]::Ok(const value) -> output(value > 1.0),
+        ParseResult[float32]::Err(_) -> panic()
+    }
+    match number("1e999") {
+        ParseResult[float32]::Ok(_) -> panic(),
+        ParseResult[float32]::Err(const error) -> {
+            match error {
+                ParseError::Overflow(const offset) -> output(offset),
+                _ -> panic()
+            }
+        }
+    }
+    match number("-0") {
+        ParseResult[float32]::Ok(const value) -> output(1.0 / value < 0.0),
+        ParseResult[float32]::Err(_) -> panic()
+    }
+}

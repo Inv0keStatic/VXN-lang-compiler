@@ -1,0 +1,25 @@
+// Stored exclusive handles, disjoint fields, and last-use reborrowing.
+struct Counters {
+    wrap uint32 left;
+    wrap uint32 right;
+}
+
+safe hot void increment(const uniq mut wrap uint32 value) {
+    value.* += 1;
+}
+
+safe io void main() {
+    mut Counters counters = Counters { left = 40, right = 40 };
+    let const whole = uniq mut counters;
+    let const left = uniq mut whole.left;
+    let const right = uniq mut whole.right;
+
+    increment(left); // Transfers this handle; the left child loan ends.
+    let const observed = ref right.*;
+    output(observed.*); // Last shared use: right becomes usable again.
+    right.* += 2;
+    whole.left += 1; // Both child loans have ended.
+
+    output(counters.left); // Last use of whole has released counters.
+    output(counters.right);
+}

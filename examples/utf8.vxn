@@ -1,0 +1,22 @@
+safe io void main() {
+    const wrap uint8[10] text = b"A\xc3\xa9\xe2\x82\xac\xf0\x9f\x98\x80";
+    match utf8_validate(text) {
+        Utf8Result::Ok(const count) -> output(count),
+        Utf8Result::Err(const error) -> output(false)
+    }
+    mut wrap uint32 offset = 0;
+    while (true) {
+        match utf8_next(slice(ref text), offset) {
+            Utf8Read::Scalar(const value, const next) -> {
+                output(value);
+                offset = next;
+            },
+            Utf8Read::End -> { break; },
+            Utf8Read::Err(const error) -> { output(false); break; }
+        }
+    }
+    match utf8_validate(b"\xc0\x80") {
+        Utf8Result::Ok(const count) -> output(count),
+        Utf8Result::Err(const error) -> output(false)
+    }
+}

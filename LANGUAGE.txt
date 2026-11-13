@@ -1,0 +1,97 @@
+﻿VXN feature examples
+====================
+Function definitions go at file scope; statement snippets go inside
+safe io void main() { ... }. Runnable sources are listed below.
+
+Bindings and integer domains
+  const uint32 answer = 42;
+  let mut enabled = true;
+  mut wrap uint32 counter = 0xffff_ffff;
+  counter += 1; // wraps to zero
+  mut saturating uint8 level = 255;
+  level += 1; // stays at 255
+
+Functions, defaults and named arguments
+  safe pure wrap uint32 add(const wrap uint32 a, const wrap uint32 b = 1) {
+      return a + b;
+  }
+  // In main:
+  output(add(a: 40, b: 2));
+
+Structs, choices and matching
+  struct Point { float64 x; float64 y; }
+  choice Reading[T:Move] { Missing, Value(T) }
+  // In main:
+  const Point point = Point { x = 1.0, y = 2.0 };
+  let const reading = Reading[uint32]::Value(42);
+  output(match reading {
+      Reading[uint32]::Value(const n) -> n,
+      Reading[uint32]::Missing -> 0
+  });
+
+Arrays, slices and loops
+  const wrap uint32[3] values = {2, 4, 6};
+  const Slice[wrap uint32] view = slice(ref values, start: 1, count: 2);
+  for (mut wrap uint32 i = 0; i < len(view); i++) {
+      output(view[i]);
+  }
+
+Shared and exclusive borrows
+  mut uint32 value = 41;
+  {
+      let const shared = ref value;
+      output(shared.*);
+  }
+  {
+      let const writable = uniq mut value;
+      writable.* += 1;
+  }
+
+Closures and partial application (using add above)
+  const wrap uint32 offset = 10;
+  let const plus_offset = fn(const wrap uint32 n) -> wrap uint32 {
+      return n + offset;
+  };
+  let const plus_ten = add(10, _);
+  output(plus_offset(32));
+  output(plus_ten(32));
+
+Lazy evaluation
+  mut lazy uint32 pending = 40 + 2;
+  output(force(uniq mut pending).*); // evaluate and cache
+  output(force_take(pending));      // consume the cached value
+
+Compile-time evaluation
+  comptime safe wrap uint32 square(const wrap uint32 n) { return n * n; }
+  // In main:
+  comptime wrap uint32 squared = square(6);
+  output(squared);
+
+Tail calls
+  safe pure hot wrap uint32 sum(const wrap uint32 n, const wrap uint32 total) {
+      if (n == 0) { return total; }
+      return tail sum(n - 1, total + n);
+  }
+
+Owned allocation
+  match box_new[uint32](42) {
+      BoxResult[uint32]::Ok(const owner) -> output(box_ref(ref owner).*),
+      BoxResult[uint32]::Err(_) -> output(0)
+  } // owner is dropped at scope exit
+
+Runnable examples
+  examples/hello.vxn                    Functions and output
+  examples/numeric_domains.vxn          Checked, wrapping and saturating arithmetic
+  examples/value_types.vxn              Structs, arrays and choices
+  examples/generics.vxn                 Constraints and operator implementations
+  examples/exclusive.vxn               Exclusive borrows
+  examples/returned_slices.vxn          Borrowed return values
+  examples/functional_values.vxn        Partial application, lazy values and rec
+  examples/function_equations.vxn       Pattern equations and tail calls
+  examples/comptime.vxn                 Compile-time functions and arrays
+  examples/ownership.vxn                Move-only owners
+  examples/vector.vxn                   Growable vectors
+  examples/text_patterns.vxn            Text matching
+  examples/results/main.vxn             Result propagation with ?
+  examples/modules/main.vxn             Imports (use modules/project.vxnp)
+  examples/packages/main.vxn            Packages (use packages/project.vxnp)

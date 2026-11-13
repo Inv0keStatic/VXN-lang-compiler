@@ -1,0 +1,21 @@
+// The closure owns its exclusive handle, not the referent's allocation.
+safe hot void step(const uniq mut wrap uint32 value) { value.* += 1; }
+
+safe io void main() {
+    mut wrap uint32 value = 40;
+    const uniq mut wrap uint32 access = uniq mut value;
+    let mut next = fn()->wrap uint32 {
+        step(uniq mut access.*);
+        return access.*;
+    };
+    let const callback = fn_uniq[safe hot fn mut()->wrap uint32](uniq mut next);
+    output(callback());
+    output(callback());
+    // Every dependent environment and view has reached its last use.
+    output(value);
+
+    const uniq const wrap uint32 read = uniq const value;
+    let const get = fn()->wrap uint32 { return read.*; };
+    let const moved = get; // transfers the affine environment
+    output(moved());
+}

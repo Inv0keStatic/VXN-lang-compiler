@@ -1,0 +1,24 @@
+safe pure hot SplitResult[T] divide[T: Move](const UniqSlice[T] data,
+                                           const wrap uint32 index) from(data) {
+    return uniq_split(data, index);
+}
+
+safe io void main() {
+    mut uint32[4] numbers = { 1, 2, 3, 4 };
+    let const parent = uniq_slice(uniq mut numbers);
+    match divide(uniq mut parent, 2) {
+        SplitResult[uint32]::Ok(const left, const right) -> {
+            left[0] = 7;
+            right[0] = 42;
+            output(left[0]);
+            output(right[0]);
+        },
+        SplitResult[uint32]::Err(_) -> panic()
+    }
+    // The child loans have ended, so the original view is available again.
+    output(parent[2]);
+    match uniq_split(uniq mut parent, 9) {
+        SplitResult[uint32]::Ok(_, _) -> panic(),
+        SplitResult[uint32]::Err(const original) -> output(len(original))
+    }
+}

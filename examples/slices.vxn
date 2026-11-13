@@ -1,0 +1,20 @@
+safe wrap uint32 sum(const Slice[wrap uint32] data) {
+    mut wrap uint32 total = 0;
+    for (mut wrap uint32 i = 0; i < len(data); i++) {
+        total += data[i];
+    }
+    return total;
+}
+
+safe io void main() {
+    const wrap uint32[5] values = {2, 4, 6, 8, 10};
+    const Slice[wrap uint32] middle = slice(ref values, start: 1, count: 3);
+    output(sum(middle));
+
+    const wrap uint8[14] message = b"[shared views]";
+    match io_write(io_stdout(), slice(ref message, 1, 12)) {
+        IoResult::Ok -> {},
+        IoResult::Error(const error) -> panic()
+    }
+    io_write_byte(io_stdout(), 10);
+}

@@ -1,0 +1,21 @@
+safe pure str greeting() from() {
+    return "Hello, VXN! \u{1f30d}\n";
+}
+
+safe pure str forward(const str text) from(text) {
+    return text;
+}
+
+safe io void main() {
+    const str message = forward(greeting());
+    match io_write(io_stdout(), str_bytes(message)) {
+        IoResult::Ok -> {},
+        IoResult::Error(const error) -> { output(false); return; }
+    }
+    output(str_byte_len(message));
+    match utf8_next(str_bytes("\u{e9}"), 0) {
+        Utf8Read::Scalar(const value, const next) -> output(value),
+        Utf8Read::End -> output(false),
+        Utf8Read::Err(const error) -> output(false)
+    }
+}

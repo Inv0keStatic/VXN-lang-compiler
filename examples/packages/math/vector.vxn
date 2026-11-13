@@ -1,0 +1,2 @@
+pub struct Vec2 { wrap uint32 x; wrap uint32 y; }
+pub safe pure wrap uint32 product(const ref Vec2 value) = value.x * value.y;

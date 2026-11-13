@@ -1,0 +1,26 @@
+constraint Add[T] {
+    safe pure T operator +(const T a, const T b);
+}
+struct Number { wrap uint32 value; }
+struct Pair[T] { T first; T second; }
+impl Add[Number] {
+    safe pure Number operator +(const Number a, const Number b) {
+        return Number { value = a.value + b.value };
+    }
+}
+impl[T: Add] Add[Pair[T]] {
+    safe pure Pair[T] operator +(const Pair[T] a, const Pair[T] b) {
+        return Pair[T] { first = a.first + b.first, second = a.second + b.second };
+    }
+}
+safe pure Pair[T] double_pair[T: Add](const Pair[T] value) {
+    return value + value;
+}
+safe io void main() {
+    const Pair[Number] value = Pair[Number] {
+        first = Number { value = 21 }, second = Number { value = 7 }
+    };
+    const Pair[Number] doubled = double_pair(value);
+    output(doubled.first.value);
+    output(doubled.second.value);
+}

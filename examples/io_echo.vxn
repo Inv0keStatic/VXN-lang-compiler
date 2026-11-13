@@ -1,0 +1,25 @@
+// Copy stdin to stdout without changing any byte. EOF is separate from error.
+safe io nopanic IoResult copy_bytes(const IoFile input, const IoFile destination) {
+    for (;;) {
+        match io_read_byte(input) {
+            IoRead::Byte(const byte) -> {
+                match io_write_byte(destination, byte) {
+                    IoResult::Ok -> {},
+                    IoResult::Error(const error) -> { return IoResult::Error(error); }
+                }
+            },
+            IoRead::End -> { return io_flush(destination); },
+            IoRead::Error(const error) -> { return IoResult::Error(error); }
+        }
+    }
+}
+
+safe io void main() {
+    match copy_bytes(io_stdin(), io_stdout()) {
+        IoResult::Ok -> {},
+        IoResult::Error(const error) -> {
+            io_write(io_stderr(), b"Copy failed\n");
+            panic();
+        }
+    }
+}

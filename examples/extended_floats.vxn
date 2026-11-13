@@ -1,0 +1,19 @@
+safe pure float128 square(const float128 value) { return value * value; }
+safe pure float80 wide(const uint64 value) { return cast[float80](value); }
+safe io void main() {
+    const float80 a = 18446744073709551615.0;
+    const float128 b = 18446744073709551617.0;
+    output(a);
+    output(b);
+    output(b - 18446744073709551616.0);
+    output(square(1.5));
+    output(wide(18446744073709551615));
+    const float128 third = 1.0 / 3.0;
+    output(third);
+    const float128 huge = 1e4000;
+    output(huge / 1e3999);
+    match parse_float[float80](b"0.1") {
+        ParseResult[float80]::Ok(const value) -> { output(value); },
+        ParseResult[float80]::Err(_) -> { panic(); }
+    }
+}

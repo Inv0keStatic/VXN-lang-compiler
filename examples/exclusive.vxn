@@ -1,0 +1,32 @@
+// Exclusive handles borrow storage; they do not own or allocate it.
+safe hot void increment(const uniq mut wrap uint32 value) {
+    value.* += 1;
+}
+
+struct Counters { wrap uint32 first; wrap uint32 second; }
+
+safe hot void advance_both(const uniq mut wrap uint32 first,
+                           const uniq mut wrap uint32 second) {
+    increment(uniq mut first.*);
+    increment(uniq mut second.*);
+}
+
+safe hot void advance(const uniq mut Counters counters) {
+    // The two field loans are disjoint. The parent resumes after the call.
+    advance_both(uniq mut counters.first, uniq mut counters.second);
+}
+
+safe io void main() {
+    mut Counters counters = Counters { first = 40, second = 41 };
+    advance(uniq mut counters);
+    output(counters.first);
+    output(counters.second);
+
+    match box_new[wrap uint32](41) {
+        BoxResult[wrap uint32]::Ok(mut owner) -> {
+            increment(box_uniq(uniq mut owner));
+            output(box_ref(ref owner).*);
+        },
+        BoxResult[wrap uint32]::Err(const error) -> output(999)
+    }
+}

@@ -1,0 +1,5 @@
+// Ordinary owned sum type. Import through a project manifest as std.result.
+pub choice Result[T, E] {
+    Ok(T),
+    Err(E)
+}

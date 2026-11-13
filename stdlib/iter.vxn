@@ -1,0 +1,41 @@
+// Immutable borrowed cursor. Advancing returns a new cursor, so no mutation of
+// borrowed aggregate fields or implicit allocation is needed. Bounds are half-open.
+pub struct Iterator[T: Move] { Slice[T] data; wrap uint32 begin; wrap uint32 end; }
+pub choice Step[T: Move] { Item(ref T, Iterator[T]), End }
+
+pub safe pure hot Iterator[T] from_slice[T: Move](const Slice[T] data) from(data) =
+    Iterator[T]{data = data, begin = 0, end = len(data)};
+pub safe pure hot wrap uint32 remaining[T: Move](const Iterator[T] iterator) {
+    if (iterator.begin <= iterator.end && iterator.end <= len(iterator.data)) {
+        return iterator.end - iterator.begin;
+    }
+    return 0;
+}
+pub safe pure hot Step[T] next[T: Move](const Iterator[T] iterator) from(iterator) {
+    const Slice[T] data = iterator.data;
+    const wrap uint32 index = iterator.begin;
+    if (index < iterator.end && iterator.end <= len(data) && index < len(data)) {
+        return Step[T]::Item(ref data[index], Iterator[T]{data = data, begin = index + 1, end = iterator.end});
+    }
+    return Step[T]::End;
+}
+pub safe pure hot Step[T] next_back[T: Move](const Iterator[T] iterator) from(iterator) {
+    const Slice[T] data = iterator.data;
+    if (iterator.begin < iterator.end && iterator.end <= len(data)) {
+        const wrap uint32 index = iterator.end - 1;
+        if (index < len(data)) {
+            return Step[T]::Item(ref data[index], Iterator[T]{data = data, begin = iterator.begin, end = index});
+        }
+    }
+    return Step[T]::End;
+}
+pub safe pure hot Iterator[T] take[T: Move](const Iterator[T] iterator, const wrap uint32 count) from(iterator) {
+    const wrap uint32 length = remaining(iterator);
+    const wrap uint32 selected = match count < length { true -> count, false -> length };
+    return Iterator[T]{data = iterator.data, begin = iterator.begin, end = iterator.begin + selected};
+}
+pub safe pure hot Iterator[T] skip[T: Move](const Iterator[T] iterator, const wrap uint32 count) from(iterator) {
+    const wrap uint32 length = remaining(iterator);
+    const wrap uint32 selected = match count < length { true -> count, false -> length };
+    return Iterator[T]{data = iterator.data, begin = iterator.begin + selected, end = iterator.end};
+}

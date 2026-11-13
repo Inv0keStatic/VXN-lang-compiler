@@ -1,0 +1,7 @@
+/* VXN build adapter: ISO C11 primitives, fixed target byte order, per-thread state. */
+#ifndef VXN_SOFTFLOAT_PLATFORM_H
+#define VXN_SOFTFLOAT_PLATFORM_H
+@VXN_SOFTFLOAT_ENDIAN@
+#define INLINE inline
+#define THREAD_LOCAL _Thread_local
+#endif

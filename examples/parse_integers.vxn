@@ -1,0 +1,23 @@
+safe pure hot ParseResult[sint64] number(const Slice[wrap uint8] bytes) {
+    return ParseResult[sint64]::Ok(parse_int[sint64](bytes)?);
+}
+safe io void main() {
+    const wrap uint8[20] text = b"-9223372036854775808";
+    match number(slice(ref text)) {
+        ParseResult[sint64]::Ok(const value) -> output(value),
+        ParseResult[sint64]::Err(const error) -> output(false)
+    }
+    match parse_int[uint8](b"256") {
+        ParseResult[uint8]::Ok(const value) -> output(value),
+        ParseResult[uint8]::Err(const error) -> match error {
+            ParseError::Empty -> output(false),
+            ParseError::InvalidDigit(const offset) -> output(offset),
+            ParseError::Overflow(const offset) -> output(offset)
+        }
+    }
+    comptime ParseResult[uint32] constant = parse_int[uint32](b"42");
+    match constant {
+        ParseResult[uint32]::Ok(const value) -> output(value),
+        ParseResult[uint32]::Err(const error) -> output(false)
+    }
+}

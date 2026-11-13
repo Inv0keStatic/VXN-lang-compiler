@@ -1,0 +1,7 @@
+package sorted_collections_test
+module app = "sorted_stress.vxn"
+module std.order = "../../stdlib/order.vxn"
+module std.sortedmap = "../../stdlib/sortedmap.vxn"
+module std.sortedset = "../../stdlib/sortedset.vxn"
+module std.iter = "../../stdlib/iter.vxn"
+module tests.oracle = "sorted_oracle.vxn"

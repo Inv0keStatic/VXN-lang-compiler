@@ -1,0 +1,55 @@
+import std.map as map;
+import std.set as set;
+
+safe io void require(const bool value) { if (!value) { panic(); } }
+
+safe io void main() {
+    match map::create[wrap uint32, wrap uint32]() {
+        map::MapResult[wrap uint32, wrap uint32]::Ok(mut values) -> {
+            const wrap uint32 missing = 999;
+            require(!map::contains(ref values, ref missing));
+            for (mut wrap uint32 i = 0; i < 50; i++) {
+                match map::insert(uniq mut values, i, i * 2) {
+                    map::Insert[wrap uint32, wrap uint32]::Inserted -> {}, _ -> panic()
+                }
+            }
+            require(map::size(ref values) == 50);
+            const wrap uint32 key = 21;
+            const wrap uint32 fallback = 99;
+            require(map::get_or(ref values, ref key, ref fallback).* == cast[wrap uint32](42));
+            require(map::get_or(ref values, ref missing, ref fallback).* == cast[wrap uint32](99));
+            match map::insert(uniq mut values, key, 123) {
+                map::Insert[wrap uint32, wrap uint32]::Occupied(const entry) -> {
+                    require(entry.key == key); require(entry.value == 123);
+                }, _ -> panic()
+            }
+            require(map::size(ref values) == 50);
+            require(map::get_or(ref values, ref key, ref fallback).* == cast[wrap uint32](42));
+            match map::remove(uniq mut values, ref key) {
+                VecPop[map::Entry[wrap uint32, wrap uint32]]::Some(const entry) -> require(entry.value == 42),
+                _ -> panic()
+            }
+            require(!map::contains(ref values, ref key));
+            const Slice[map::Entry[wrap uint32, wrap uint32]] entries = map::view(ref values);
+            require(entries[21].key == 22);
+            const wrap uint32 capacity = map::capacity(ref values);
+            map::clear(uniq mut values);
+            require(map::capacity(ref values) == capacity);
+            require(map::size(ref values) == 0);
+        }, _ -> panic()
+    }
+    match set::create[uint32]() {
+        set::SetResult[uint32]::Ok(mut values) -> {
+            const uint32 value = 42;
+            match set::insert(uniq mut values, value) { set::Insert[uint32]::Inserted -> {}, _ -> panic() }
+            match set::insert(uniq mut values, value) { set::Insert[uint32]::Present(const returned) -> require(returned == value), _ -> panic() }
+            require(set::size(ref values) == 1);
+            require(set::view(ref values)[0] == value);
+            require(set::contains(ref values, ref value));
+            match set::remove(uniq mut values, ref value) { VecPop[uint32]::Some(const returned) -> require(returned == value), _ -> panic() }
+            require(set::size(ref values) == 0);
+            match set::remove(uniq mut values, ref value) { VecPop[uint32]::Empty -> {}, _ -> panic() }
+        }, _ -> panic()
+    }
+    output(true);
+}

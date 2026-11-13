@@ -1,0 +1,32 @@
+import common::{Complex, position};
+
+pub safe io void require_io(const IoResult result) {
+    match result { IoResult::Ok -> {}, IoResult::Error(_) -> { panic(); } }
+}
+
+// The renderer knows nothing about fractals. Any statically resolved shader fits.
+pub safe io void panel[F: safe pure hot fn(const Complex) -> Color](
+    const IoFile file, const ref F shader, const wrap uint32 y
+) {
+    for (mut wrap uint32 x = 0; x < 320; x++) {
+        const Color color = shader(position(x, y));
+        require_io(io_write(file, {color.r, color.g, color.b}));
+    }
+}
+
+pub safe io void gallery[
+    A: safe pure hot fn(const Complex) -> Color,
+    B: safe pure hot fn(const Complex) -> Color,
+    C: safe pure hot fn(const Complex) -> Color
+](const str path, const A left, const B middle, const C right) {
+    const IoFile file = match io_create(str_bytes(path)) {
+        IoOpen::Ok(const opened) -> opened, IoOpen::Error(_) -> panic()
+    };
+    require_io(io_write(file, b"P6\n960 360\n255\n"));
+    for (mut wrap uint32 y = 0; y < 360; y++) {
+        panel(file, ref left, y);
+        panel(file, ref middle, y);
+        panel(file, ref right, y);
+    }
+    require_io(io_close(file));
+}

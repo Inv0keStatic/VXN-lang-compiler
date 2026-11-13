@@ -1,0 +1,36 @@
+// FNV-1a over explicit bytes (RFC 9923). This is not a cryptographic hash.
+// Equal keys must have equal hashes; these operations do not prove that law.
+pub constraint Hash[T: Move] {
+    safe pure hot wrap uint64 hash(const ref T value);
+}
+
+pub safe pure hot wrap uint64 bytes(const Slice[wrap uint8] data) {
+    mut wrap uint64 result=14695981039346656037;
+    for(mut wrap uint32 i=0;i<len(data);i++) {
+        result=(result ^ cast[wrap uint64](data[i])) * 1099511628211;
+    }
+    return result;
+}
+
+pub safe pure hot wrap uint64 text(const str value) = bytes(str_bytes(value));
+
+// Scalar keys use eight low-byte-first bytes, independent of host endianness.
+pub safe pure hot wrap uint64 word(mut wrap uint64 value) {
+    mut wrap uint64 result=14695981039346656037;
+    for(mut wrap uint32 i=0;i<8;i++) {
+        result=(result ^ (value & 255)) * 1099511628211;
+        value >>= 8;
+    }
+    return result;
+}
+
+impl Hash[bool] { safe pure hot wrap uint64 hash(const ref bool value) { if(value.*){return word(1);}return word(0); } }
+impl Hash[uint32] { safe pure hot wrap uint64 hash(const ref uint32 value) = word(cast[wrap uint64](value.*)); }
+impl Hash[wrap uint32] { safe pure hot wrap uint64 hash(const ref wrap uint32 value) = word(cast[wrap uint64](value.*)); }
+impl Hash[sint32] { safe pure hot wrap uint64 hash(const ref sint32 value) = word(narrow[wrap uint64](value.*)); }
+impl Hash[wrap sint32] { safe pure hot wrap uint64 hash(const ref wrap sint32 value) = word(narrow[wrap uint64](value.*)); }
+impl Hash[uint64] { safe pure hot wrap uint64 hash(const ref uint64 value) = word(cast[wrap uint64](value.*)); }
+impl Hash[wrap uint64] { safe pure hot wrap uint64 hash(const ref wrap uint64 value) = word(value.*); }
+impl Hash[sint64] { safe pure hot wrap uint64 hash(const ref sint64 value) = word(narrow[wrap uint64](value.*)); }
+impl Hash[wrap sint64] { safe pure hot wrap uint64 hash(const ref wrap sint64 value) = word(narrow[wrap uint64](value.*)); }
+impl Hash[String] { safe pure hot wrap uint64 hash(const ref String value) = text(string_view(value)); }

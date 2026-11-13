@@ -1,0 +1,47 @@
+#define MEMORY_BOX "safe io Box[uint32] make(const uint32 n){return match box_new[uint32](n){BoxResult[uint32]::Ok(const b)->b,_->panic()};}"
+#define MEMORY_NODE "choice Link{None,Some(Box[uint32])}"
+static const Case memory_cases[]={
+    {"scalar replacement returns old value","safe hot uint32 replace(const uniq mut uint32 x){return mem_replace(x,42);}safe io void main(){mut uint32 n=7;output(replace(uniq mut n));output(n);}","7\n42\n","",0},
+    {"scalar swap","safe hot void flip(const uniq mut uint32 a,const uniq mut uint32 b){mem_swap(a,b);}safe io void main(){mut uint32 a=7;mut uint32 b=42;flip(uniq mut a,uniq mut b);output(a);output(b);}","42\n7\n","",0},
+    {"wide float exchange","safe io void main(){mut float128 a=7.0;mut float128 b=42.0;output(mem_replace(uniq mut a,8.0));mem_swap(uniq mut a,uniq mut b);output(a);output(b);}","7\n42\n8\n","",0},
+    {"owner assignment through exclusive parameter",MEMORY_BOX "safe void set(const uniq mut Box[uint32] target,const Box[uint32] value){target.*=value;}safe io void main(){mut Box[uint32] a=make(7);set(uniq mut a,make(42));output(box_ref(ref a).*);}","42\n","",0},
+    {"dynamic owner array replacement",MEMORY_BOX "safe void set(mut Box[uint32][2] a,const uint32 i,const Box[uint32] b){a[i]=b;output(box_ref(ref a[i]).*);}safe io void main(){set({make(1),make(2)},1,make(42));}","42\n","",0},
+    {"owner replacement preserves old value",MEMORY_BOX "safe Box[uint32] replace(const uniq mut Box[uint32] a,const Box[uint32] b){return mem_replace(a,b);}safe io void main(){mut Box[uint32] a=make(7);const Box[uint32] old=replace(uniq mut a,make(42));output(box_ref(ref old).*);output(box_ref(ref a).*);}","7\n42\n","",0},
+    {"owner swap is hot",MEMORY_BOX "safe hot void flip(const uniq mut Box[uint32] a,const uniq mut Box[uint32] b){mem_swap(a,b);}safe io void main(){mut Box[uint32] a=make(7);{mut Box[uint32] b=make(42);flip(uniq mut a,uniq mut b);output(box_ref(ref b).*);}output(box_ref(ref a).*);}","7\n42\n","",0},
+    {"swap generic Move",MEMORY_BOX "safe hot void flip[T:Move](const uniq mut T a,const uniq mut T b){mem_swap(a,b);}safe io void main(){mut Box[uint32] a=make(7);mut Box[uint32] b=make(42);flip(uniq mut a,uniq mut b);output(box_ref(ref a).*);output(box_ref(ref b).*);}","42\n7\n","",0},
+    {"replace generic Move",MEMORY_BOX "safe io T replace[T:Move](const uniq mut T target,const T value){return mem_replace(target,value);}safe io void main(){mut Box[uint32] a=make(7);const Box[uint32] old=replace(uniq mut a,make(42));output(box_ref(ref old).*);output(box_ref(ref a).*);}","7\n42\n","",0},
+    {"empty owner choice exchange",MEMORY_BOX MEMORY_NODE "safe io void main(){mut Link a=Link::None;const Link old=mem_replace(uniq mut a,Link::Some(make(42)));output(match old{Link::None->true,_->false});const Link next=mem_replace(uniq mut a,Link::None);match next{Link::Some(const b)->output(box_ref(ref b).*),_->panic()}}","true\n42\n","",0},
+    {"nested heap owner assignment",MEMORY_BOX "safe io void main(){mut Box[Box[uint32]] outer=match box_new[Box[uint32]](make(7)){BoxResult[Box[uint32]]::Ok(const b)->b,_->panic()};box_uniq(uniq mut outer).*=make(42);output(box_ref(box_ref(ref outer)).*);}","42\n","",0},
+    {"nested heap owner exchange",MEMORY_BOX "safe io void main(){mut Box[Box[uint32]] outer=match box_new[Box[uint32]](make(7)){BoxResult[Box[uint32]]::Ok(const b)->b,_->panic()};const Box[uint32] old=mem_replace(box_uniq(uniq mut outer),make(42));output(box_ref(ref old).*);output(box_ref(box_ref(ref outer)).*);}","7\n42\n","",0},
+    {"split views exchange owners",MEMORY_BOX "safe io void main(){mut Box[uint32][2] a={make(7),make(42)};match uniq_split(uniq_slice(uniq mut a),1){SplitResult[Box[uint32]]::Ok(const left,const right)->{mem_swap(uniq mut left[0],uniq mut right[0]);},_->panic()}output(box_ref(ref a[0]).*);output(box_ref(ref a[1]).*);}","42\n7\n","",0},
+    {"named replacement evaluation order","safe io uint32 value(){output(1);return 42;}safe io uniq mut uint32 target(const uniq mut uint32 x)from(x){output(2);return x;}safe io void main(){mut uint32 n=7;output(mem_replace(value:value(),target:target(uniq mut n)));output(n);}","1\n2\n7\n42\n","",0},
+    {"replacement result consumed by closure",MEMORY_BOX "safe io void main(){mut Box[uint32] a=make(7);const Box[uint32] old=mem_replace(uniq mut a,make(42));let const f=fn()->Box[uint32]{return old;};const Box[uint32] b=f();output(box_ref(ref b).*);output(box_ref(ref a).*);}","7\n42\n","",0},
+    {"vector elements exchange ownership",MEMORY_BOX "safe io void main(){mut Vec[Box[uint32]] v=match vec_new[Box[uint32]](){VecResult[Box[uint32]]::Ok(const v)->v,_->panic()};vec_push(uniq mut v,make(7));vec_push(uniq mut v,make(42));let const view=vec_uniq(uniq mut v);const Box[uint32] old=mem_replace(uniq mut view[0],make(1));view[1]=make(2);output(box_ref(ref old).*);output(box_ref(ref view[0]).*);output(box_ref(ref view[1]).*);vec_clear(uniq mut v);output(box_ref(ref old).*);}","7\n1\n2\n7\n","",0},
+    {"swap inside heap with outside local",MEMORY_BOX "safe hot void flip(const uniq mut Box[uint32] a,const uniq mut Box[uint32] b){mem_swap(a,b);}safe io void main(){mut Box[uint32] a=make(7);{mut Box[Box[uint32]] b=match box_new[Box[uint32]](make(42)){BoxResult[Box[uint32]]::Ok(const b)->b,_->panic()};flip(uniq mut a,box_uniq(uniq mut b));output(box_ref(box_ref(ref b)).*);}output(box_ref(ref a).*);}","7\n42\n","",0},
+    {"owned struct fields swap",MEMORY_BOX "struct Pair{Box[uint32] a;Box[uint32] b;}safe io void main(){mut Pair p=Pair{a=make(7),b=make(42)};mem_swap(uniq mut p.a,uniq mut p.b);output(box_ref(ref p.a).*);output(box_ref(ref p.b).*);}","42\n7\n","",0},
+    {"empty owner choice swapped with occupied",MEMORY_BOX MEMORY_NODE "safe io void main(){mut Link a=Link::None;{mut Link b=Link::Some(make(42));mem_swap(uniq mut a,uniq mut b);output(match b{Link::None->true,_->false});}match a{Link::Some(const b)->output(box_ref(ref b).*),_->panic()}}","true\n42\n","",0},
+    {"early error precedes owner replacement",MEMORY_BOX "choice Result[T,E]{Ok(T),Err(E)}safe Result[Box[uint32],bool] fail(){return Result[Box[uint32],bool]::Err(true);}safe io Result[bool,bool] set(const uniq mut Box[uint32] target){target.*=fail()?;return Result[bool,bool]::Ok(true);}safe io void main(){mut Box[uint32] a=make(7);set(uniq mut a);output(box_ref(ref a).*);}","7\n","",0},
+    {"memory exchange through exclusive closure capture",MEMORY_BOX "safe io void main(){mut Box[uint32] a=make(7);let const target=uniq mut a;let mut f=fn(const Box[uint32] b)->Box[uint32]{return mem_replace(uniq mut target.*,b);};const Box[uint32] old=f(make(42));output(box_ref(ref old).*);output(box_ref(ref a).*);}","7\n42\n","",0},
+};
+static const Bad memory_bad[]={
+    {"safe void f(const ref uint32 x){mem_replace(x,7);}","requires uniq mut"},
+    {"safe void f(const uniq const uint32 x){mem_replace(x,7);}","requires uniq mut"},
+    {"safe void f(){mut uint32 x=7;mem_swap(uniq mut x,uniq mut x);}","borrow"},
+    {"safe void f(){mut uint32 x=7;let const r=ref x;mem_replace(uniq mut x,42);output(r.*);}","borrow"},
+    {MEMORY_BOX "safe void f(){mut Box[uint32] x=make(7);mem_replace(uniq mut x,x);}","borrow"},
+    {"safe void f(const uniq mut uint32 x){mem_replace(x,true);}","expected"},
+    {"safe void f(const uniq mut uint32 x,const uniq mut bool y){mem_swap(x,y);}","expected"},
+    {"safe void f(const ref uint32 a,const ref uint32 b){mut ref uint32 x=a;mem_replace(uniq mut x,b);}","nested references"},
+    {"safe pure void f(const uniq mut uint32 x){mem_replace(x,42);}","write"},
+    {"safe hot void f(const uniq mut Box[uint32] a,const uniq mut Box[uint32] b){mem_replace(a,mem_replace(b,panic()));}","effect"},
+    {"safe void mem_replace(){}","cannot redefine a builtin"},
+    {"safe void mem_swap(){}","cannot redefine a builtin"},
+    {MEMORY_BOX "safe void f(){mut Box[uint32] a=make(7);const Box[uint32] b=make(42);mem_replace(uniq mut a,b);output(box_ref(ref b).*);}","moved"},
+    {"safe hot void f(const uniq mut Box[uint32] a,const Box[uint32] b){a.*=b;}","cleanup"},
+    {"safe void f(){mut uint32 n;mem_replace(uniq mut n,42);}","uninitialized"},
+    {"safe void f(const uniq mut uint32 a){mem_replace[uint32](a,42);}","declared generic function"},
+    {"struct View{ref uint32 data;}safe void f(const ref uint32 a){mut View v=View{data=a};mem_replace(uniq mut v,View{data=a});}","borrowed dependencies"},
+    {"safe hot void f(const uniq mut uint32 n){mut uint32 count=0;if(count<2){mem_replace(n,42);count+=1;}}","effect"},
+};
+#undef MEMORY_BOX
+#undef MEMORY_NODE

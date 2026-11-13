@@ -1,0 +1,21 @@
+import common::{Complex, square_plus, ink};
+
+choice Orbit { Inside, Escaped(wrap uint32) }
+
+safe pure hot Orbit orbit(const Complex z, const Complex c, const wrap uint32 step) {
+    match step {
+        180 -> { return Orbit::Inside; },
+        _ if z.x * z.x + z.y * z.y > 4.0 -> { return Orbit::Escaped(step); },
+        _ -> { return tail orbit(square_plus(z, c), c, step + 1); }
+    }
+}
+
+// A shader is a value: capture the Julia parameter once, then reuse it per pixel.
+pub safe pure opaque safe pure hot fn(const Complex) -> Color julia(const Complex c) {
+    return fn(const Complex z) -> Color {
+        return match orbit(z, c, 0) {
+            Orbit::Inside -> rgb(7, 11, 23),
+            Orbit::Escaped(const step) -> ink(step)
+        };
+    };
+}

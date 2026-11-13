@@ -1,0 +1,31 @@
+safe pure Slice[wrap uint8] bytes(const ref String text) from(text) {
+    return string_bytes(text);
+}
+safe io void main() {
+    match vec_new[wrap uint8]() {
+        VecResult[wrap uint8]::Ok(mut data) -> {
+            match vec_push(uniq mut data, 195) {
+                AllocResult::Ok -> {}, AllocResult::Err(const error) -> { output(false); return; }
+            }
+            match vec_push(uniq mut data, 169) {
+                AllocResult::Ok -> {}, AllocResult::Err(const error) -> { output(false); return; }
+            }
+            match string_from_utf8(data) {
+                StringResult::Ok(const text) -> {
+                    output(string_byte_len(ref text));
+                    match utf8_next(bytes(ref text), 0) {
+                        Utf8Read::Scalar(const value, const next) -> output(value),
+                        Utf8Read::End -> output(false),
+                        Utf8Read::Err(const error) -> output(false)
+                    }
+                    const Vec[wrap uint8] recovered = string_into_bytes(text);
+                    output(vec_len(ref recovered));
+                },
+                StringResult::Err(const error) -> {
+                    output(vec_len(ref error.bytes));
+                }
+            }
+        },
+        VecResult[wrap uint8]::Err(const error) -> output(false)
+    }
+}

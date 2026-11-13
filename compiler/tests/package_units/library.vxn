@@ -1,0 +1,26 @@
+pub safe pure hot wrap uint32 double(const wrap uint32 n) = n * 2;
+pub safe pure hot wrap uint32 sum(const wrap uint32 n,const wrap uint32 total) {
+    if (n == 0) { return total; }
+    return tail sum(n - 1,total + n);
+}
+pub safe pure opaque safe pure fn(const wrap uint32)->wrap uint32 closure(const wrap uint32 bias) {
+    return fn(const wrap uint32 n)->wrap uint32 { return n + bias; };
+}
+pub safe nopanic BoxResult[DynFn[safe pure fn()->uint32]] boxed(const uint32 value) {
+    return box_fn[safe pure fn()->uint32](fn()->uint32 { return value; });
+}
+pub safe io T keep[T:Move](const T value) = value;
+pub safe pure hot RefOption[wrap uint32] first(const Slice[wrap uint32] data) from(data) {
+    const wrap uint32 index = 0;
+    if (index < len(data)) { return RefOption[wrap uint32]::Some(ref data[index]); }
+    return RefOption[wrap uint32]::None;
+}
+pub safe pure hot float128 wide(const float128 value) = value + 1.0;
+pub safe pure hot uint32 default_value(const uint32 value = 42) = value;
+pub safe io uint32 hop(const Box[uint32] owner,const wrap uint32 n) {
+    let const next = fn()->uint32 {
+        if (n == 0) { return box_into_inner(owner); }
+        return tail hop(owner,n - 1);
+    };
+    return tail next();
+}

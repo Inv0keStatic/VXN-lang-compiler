@@ -1,0 +1,43 @@
+import std.map as map;
+
+safe io void main() {
+    match map::create[String, Box[uint32]]() {
+        map::MapResult[String, Box[uint32]]::Ok(mut values) -> {
+            match string_from_str("answer") {
+                StringAlloc::Ok(const key) -> {
+                    match box_new[uint32](42) {
+                        BoxResult[uint32]::Ok(const value) -> {
+                            match map::insert(uniq mut values, key, value) {
+                                map::Insert[String, Box[uint32]]::Inserted -> {}, _ -> panic()
+                            }
+                        }, _ -> panic()
+                    }
+                }, _ -> panic()
+            }
+            match string_from_str("answer") {
+                StringAlloc::Ok(const duplicate) -> {
+                    match box_new[uint32](7) {
+                        BoxResult[uint32]::Ok(const value) -> {
+                            match map::insert(uniq mut values, duplicate, value) {
+                                map::Insert[String, Box[uint32]]::Occupied(const returned) -> {
+                                    output(box_into_inner(returned.value));
+                                    output(str_equal(string_view(ref returned.key), "answer"));
+                                }, _ -> panic()
+                            }
+                        }, _ -> panic()
+                    }
+                }, _ -> panic()
+            }
+            // Search owned String keys using a borrowed UTF-8 view, without
+            // constructing another String or copying the stored key/value.
+            const str query = "answer";
+            let const matches = fn(const ref String key) -> bool {
+                return str_equal(string_view(key), query);
+            };
+            match map::find_where(ref values, fn_ref[safe pure fn(const ref String)->bool](ref matches)) {
+                map::Lookup::Found(const index) -> output(box_ref(map::value_at(ref values, index)).*),
+                map::Lookup::Missing -> panic()
+            }
+        }, _ -> panic()
+    }
+}

@@ -1,0 +1,21 @@
+// A const descriptor can write through its exclusive permission.
+safe io void fill(const UniqSlice[uint32] data, const uint32 value) {
+    for (mut wrap uint32 i = 0; i < len(data); i++) {
+        data[i] = value;
+    }
+}
+
+safe io void show(const Slice[uint32] data) {
+    for (mut wrap uint32 i = 0; i < len(data); i++) {
+        output(data[i]);
+    }
+}
+
+safe io void main() {
+    mut uint32[4] values = { 10, 20, 30, 40 };
+    const UniqSlice[uint32] view = uniq_slice(uniq mut values);
+    fill(uniq_slice(uniq mut view, start: 1, count: 2), 7);
+    show(ref view); // A shared child, with no descriptor move.
+    view[0] = 9;    // Access resumes after the child call.
+    output(values[0]); // The final view use has ended.
+}

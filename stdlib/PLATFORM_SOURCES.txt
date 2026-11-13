@@ -1,0 +1,32 @@
+Windows platform adaptation
+===========================
+
+The Vxn standard library does not link raylib, GLFW, SDL or another windowing
+library. Its Windows implementation calls Win32/User32 and GDI32 directly.
+Its software drawing, resource table and Vxn-facing API are implemented here.
+
+The message pump, close-request handling, focus-loss reset, mouse/key event
+handling, system-key forwarding, and performance-counter timing were adapted
+with reference to raylib 6.2:
+
+https://github.com/raysan5/raylib/blob/6.2/src/platforms/rcore_desktop_win32.c
+https://github.com/raysan5/raylib/blob/6.2/LICENSE
+
+Reference source SHA-256:
+F179A98F23285B26C8947B07997B1D4E0735994EA39F9E353D5EC9C766BF8BDA
+Retrieved 2026-10-26.
+
+stdlib/runtime/platform_win32.h is marked as an altered adaptation and retains
+the original file's copyright and complete zlib/libpng notice. It is not a
+vendored copy of raylib's platform module. In particular, Vxn uses per-window
+state, a bounded per-window message pump, software buffers presented with
+StretchDIBits, and no OpenGL context or raylib CORE/rlgl state.
+
+Primary Windows API references:
+https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-stretchdibits
+https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-peekmessagew
+
+The headers are embedded verbatim, including attribution, in emitted C.
+All executable implementation and build tools are C. No Rust dependency is
+introduced. The platform backend and standard library are outside the Lean
+proofs; their contracts are validated with runtime and compiler tests.

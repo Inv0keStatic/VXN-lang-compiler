@@ -1,0 +1,23 @@
+safe pure wrap uint32 twice(const wrap uint32 value) {
+    return value * 2;
+}
+
+safe pure wrap uint32 apply(
+    const safe pure fn(const wrap uint32) -> wrap uint32 callback,
+    const wrap uint32 value
+) {
+    return callback(value);
+}
+
+safe hot wrap uint32 direct(const wrap uint32 value) {
+    let const callback = twice;
+    return callback(value);
+}
+
+safe io void main() {
+    output(direct(21));
+    output(apply(twice, 21));
+    output(apply(fn(const wrap uint32 value) -> wrap uint32 {
+        return value + 1;
+    }, 41));
+}

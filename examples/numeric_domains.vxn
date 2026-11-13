@@ -1,0 +1,16 @@
+safe io void main() {
+    const wrap uint8 wrapping = 255;
+    const saturating uint8 clamped = 255;
+    output(wrapping + 1);
+    output(clamped + 1);
+
+    const wrap sint64 minimum = -9223372036854775808;
+    output(minimum / -1);
+    output(narrow[wrap uint8](1000));
+
+    const float32 fraction = 1.5;
+    output(fraction * 2.0);
+
+    const uint8 checked_value = 255; // Bare integer types are checked.
+    output(checked_value + 1); // Prints panic and exits 1.
+}

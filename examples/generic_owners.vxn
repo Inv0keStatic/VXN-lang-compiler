@@ -1,0 +1,39 @@
+// Static operation contracts can inspect owners without consuming them.
+constraint Read[T: Move] {
+    safe pure uint32 read(const ref T value);
+}
+
+impl Read[Box[uint32]] {
+    safe pure uint32 read(const ref Box[uint32] value) {
+        return box_ref(value).*;
+    }
+}
+
+safe pure uint32 inspect[T: Move & Read](const ref T value) {
+    return Read[T]::read(value);
+}
+
+struct Pair[T] {
+    T first;
+    T second;
+}
+
+// The first field moves out; the second is cleaned up on return.
+safe io nopanic T take_first[T: Move](const Pair[T] values) {
+    return values.first;
+}
+
+safe io nopanic BoxResult[uint32] make_answer() {
+    const Pair[Box[uint32]] values = Pair[Box[uint32]] {
+        first = box_new[uint32](42)?,
+        second = box_new[uint32](7)?
+    };
+    return BoxResult[uint32]::Ok(take_first[Box[uint32]](values));
+}
+
+safe io nopanic void main() {
+    match make_answer() {
+        BoxResult[uint32]::Ok(const owner) -> output(inspect[Box[uint32]](ref owner)),
+        BoxResult[uint32]::Err(const error) -> output(0)
+    }
+}

@@ -1,0 +1,62 @@
+import navigation::{Set, View, State, Action, initial, home, camera, point, update};
+import sampling;
+
+safe pure bool close(const float64 a, const float64 b) = a - b < 0.000000001 && b - a < 0.000000001;
+safe void require(const bool condition) { if (!condition) { panic(); } }
+safe io void main() {
+    const State start = initial();
+    const State chosen = update(start, Action::Select(Set::Dust));
+    require(!chosen.gallery);
+    const State zoomed = update(chosen, Action::Zoom(Set::Dust, 0.23, -0.17, 0.5));
+    require(close(point(chosen.dust, 0.23, -0.17).x, point(zoomed.dust, 0.23, -0.17).x));
+    require(close(point(chosen.dust, 0.23, -0.17).y, point(zoomed.dust, 0.23, -0.17).y));
+    require(close(zoomed.dust.span, 1.7));
+    const State panned = update(zoomed, Action::Pan(Set::Dust, 0.1, -0.2));
+    require(close(panned.dust.center.x, zoomed.dust.center.x - 0.17));
+    require(close(panned.dust.center.y, zoomed.dust.center.y + 0.34));
+    require(close(panned.dragon.span, 3.4));
+    const State other = update(panned, Action::Select(Set::Islands));
+    require(close(other.dust.center.x, panned.dust.center.x));
+    const State reset = update(panned, Action::Reset);
+    require(close(reset.dust.span, 3.4) && close(reset.dust.center.x, 0.0));
+    const State minimum = update(chosen, Action::Zoom(Set::Dust, 0.23, -0.17, 0.0));
+    require(minimum.dust.span == 0.0000000001);
+    require(close(point(minimum.dust, 0.23, -0.17).x, point(chosen.dust, 0.23, -0.17).x));
+    const State maximum = update(chosen, Action::Zoom(Set::Dust, 0.0, 0.0, 1000000.0));
+    require(maximum.dust.span == 12.0);
+    const State overview = update(panned, Action::Gallery);
+    require(overview.gallery && close(overview.dust.span, panned.dust.span));
+    require(close(update(overview, Action::Reset).dust.span, 3.4));
+    mut wrap uint64 visited = 0;
+    for (mut wrap uint32 phase = 0; phase < 64; phase++) {
+        const wrap uint32 x = sampling::column(phase);
+        const wrap uint32 y = sampling::row(phase);
+        require(x < 8 && y < 8);
+        const wrap uint64 bit = cast[wrap uint64](1) << (y * 8 + x);
+        require((visited & bit) == 0);
+        visited |= bit;
+    }
+    require(visited == 18446744073709551615);
+    mut wrap uint32 groups = 0;
+    for (mut wrap uint32 chunk = 0; chunk < 16; chunk++) {
+        const wrap uint32 group = sampling::row_group(chunk);
+        require(group < 16);
+        const wrap uint32 bit = cast[wrap uint32](1) << group;
+        require((groups & bit) == 0);
+        groups |= bit;
+    }
+    require(groups == 65535);
+    // Include the final four rows: 540 is not divisible by 8 or 128.
+    for (mut wrap uint32 phase = 0; phase < 64; phase++) {
+        mut wrap uint32 rows = 0;
+        for (mut wrap uint32 chunk = 0; chunk < 16; chunk++) {
+            const wrap uint32 first = sampling::row(phase) + sampling::row_group(chunk) * 8;
+            for (mut wrap uint32 y = first; y < 540; y += 128) {
+                require(y % 8 == sampling::row(phase));
+                rows++;
+            }
+        }
+        require(rows == match sampling::row(phase) < 4 { true -> 68, false -> 67 });
+    }
+    output(true);
+}

@@ -1,0 +1,23 @@
+import std.deque as deque;
+
+// With a two-allocation runtime limit, the deque header and Box succeed,
+// but the element buffer cannot be allocated. The input Box must return.
+safe io void main() {
+    match deque::create[Box[uint32]]() {
+        deque::DequeResult[Box[uint32]]::Ok(mut queue) -> {
+            match box_new[uint32](42) {
+                BoxResult[uint32]::Ok(const owner) -> {
+                    match deque::push_front(uniq mut queue, owner) {
+                        VecInsert[Box[uint32]]::Allocation(_, const returned) -> {
+                            output(box_into_inner(returned));
+                            output(deque::size(ref queue));
+                        },
+                        _ -> panic()
+                    }
+                },
+                _ -> panic()
+            }
+        },
+        deque::DequeResult[Box[uint32]]::Err(_) -> output(11)
+    }
+}

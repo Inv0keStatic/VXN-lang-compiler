@@ -1,0 +1,2 @@
+import tests.oracle;
+safe io void main(){oracle::check(2000);}

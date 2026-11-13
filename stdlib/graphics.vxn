@@ -1,0 +1,15 @@
+choice GfxError {
+    Unsupported, InvalidHandle, InvalidSize, InvalidText, ResourceLimit,
+    WrongKind, OpenFailed, PresentFailed, OutOfBounds, InvalidArgument, CloseFailed
+}
+choice GfxResult { Ok, Error(GfxError) }
+choice CanvasOpen { Ok(Canvas), Error(GfxError) }
+choice WindowOpen { Ok(Window), Error(GfxError) }
+choice PixelRead { Ok(Color), Error(GfxError) }
+struct Color { wrap uint8 r; wrap uint8 g; wrap uint8 b; wrap uint8 a; }
+pub safe pure Color rgb(const wrap uint8 r, const wrap uint8 g, const wrap uint8 b) {
+    return Color { r = r, g = g, b = b, a = 255 };
+}
+pub safe pure Color rgba(const wrap uint8 r, const wrap uint8 g, const wrap uint8 b, const wrap uint8 a) {
+    return Color { r = r, g = g, b = b, a = a };
+}

@@ -1,0 +1,4 @@
+// Compiler-prelude results for allocation-free decimal integer parsing.
+// Positions are zero-based byte offsets, including a leading sign.
+choice ParseError { Empty, InvalidDigit(wrap uint32), Overflow(wrap uint32) }
+choice ParseResult[T] { Ok(T), Err(ParseError) }

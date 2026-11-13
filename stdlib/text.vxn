@@ -1,0 +1,22 @@
+// UTF-8 primitives in the compiler prelude. Offsets count bytes from zero.
+choice Utf8Error {
+    InvalidByte(wrap uint32), Truncated(wrap uint32), OutOfBounds(wrap uint32)
+}
+choice Utf8Result { Ok(wrap uint32), Err(Utf8Error) }
+choice Utf8Read { Scalar(wrap uint32, wrap uint32), End, Err(Utf8Error) }
+// On validation failure the caller recovers ownership of the original bytes.
+struct StringError { Utf8Error error; Vec[wrap uint8] bytes; }
+choice StringResult { Ok(String), Err(StringError) }
+// Allocation failure never consumes the borrowed source or changes the target.
+choice StringAlloc { Ok(String), Err(AllocError) }
+choice StringEditError { InvalidScalar(wrap uint32), Allocation(AllocError) }
+choice StringEditResult { Ok, Err(StringEditError) }
+// Search offsets and truncation indices count bytes, never grapheme clusters.
+choice TextSearch { Found(wrap uint32), NotFound }
+choice TextOrder { Less, Equal, Greater }
+choice TextIndexError { OutOfBounds(wrap uint32), NotBoundary(wrap uint32) }
+choice StringIndexResult { Ok, Err(TextIndexError) }
+// Borrowed results retain the source's storage origins, including on copies.
+choice TextRangeError { OutOfBounds, NotBoundary(wrap uint32) }
+choice TextSliceResult { Ok(str), Err(TextRangeError) }
+choice StrResult { Ok(str), Err(Utf8Error) }

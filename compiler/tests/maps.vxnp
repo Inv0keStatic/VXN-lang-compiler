@@ -1,0 +1,5 @@
+package maps_test
+module app = "maps.vxn"
+module std.equal = "../../stdlib/equal.vxn"
+module std.map = "../../stdlib/map.vxn"
+module std.set = "../../stdlib/set.vxn"

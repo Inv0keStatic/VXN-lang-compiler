@@ -1,0 +1,24 @@
+import dep.core;
+
+safe pure hot wrap uint32 forward(const wrap uint32 n,const wrap uint32 total) = tail core::sum(n,total);
+safe io void main() {
+    const safe pure fn(const wrap uint32)->wrap uint32 callback = core::double;
+    output(callback(21));
+    output(forward(10000,0));
+    let const closure = core::closure(7);
+    output(closure(35));
+    match core::boxed(42) {
+        BoxResult[DynFn[safe pure fn()->uint32]]::Ok(const boxed) -> output(boxed()),
+        _ -> panic()
+    }
+    match box_new[uint32](42) {
+        BoxResult[uint32]::Ok(const owner) -> {
+            const Box[uint32] moved = core::keep(owner);
+            output(core::hop(moved,10000));
+        }, _ -> panic()
+    }
+    const wrap uint32[2] data = {7,42};
+    match core::first(slice(ref data)) { RefOption[wrap uint32]::Some(const first) -> output(first.*), _ -> panic() }
+    output(core::wide(41.0));
+    output(core::default_value());
+}

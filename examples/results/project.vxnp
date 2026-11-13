@@ -1,0 +1,3 @@
+package result_demo
+module app = "main.vxn"
+module std.result = "../../stdlib/result.vxn"

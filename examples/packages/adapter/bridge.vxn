@@ -1,0 +1,3 @@
+import geometry.vector;
+
+pub safe pure vector::Vec2 make(const wrap uint32 x,const wrap uint32 y) = vector::Vec2{x=x,y=y};

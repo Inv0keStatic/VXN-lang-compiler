@@ -1,0 +1,15 @@
+import common::{Complex, square_plus, ink};
+
+// The same algorithm with explicit state, a loop, and a final branch.
+pub safe pure hot Color julia(const Complex initial, const Complex c) {
+    mut Complex z = initial;
+    mut wrap uint32 step = 0;
+    while (step < 180 && z.x * z.x + z.y * z.y <= 4.0) {
+        z = square_plus(z, c);
+        step++;
+    }
+    if (step == 180) {
+        return rgb(7, 11, 23);
+    }
+    return ink(step);
+}

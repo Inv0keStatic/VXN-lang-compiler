@@ -1,0 +1,29 @@
+// One explicit signature, followed immediately by ordered exhaustive equations.
+safe pure hot wrap uint32 gcd(const wrap uint32 a, const wrap uint32 b);
+gcd(const a, const b) if b != 0 = tail gcd(b, a % b);
+gcd(const a, _) = a;
+
+choice Command { Answer, Gcd(wrap uint32, wrap uint32), Quit }
+
+safe io uint32 run(const Command command);
+run(Command::Answer) = 42;
+run(Command::Gcd(const a, const b)) = cast[uint32](gcd(a, b));
+run(Command::Quit) = 0;
+
+// Capture the thunk now, execute it only when the caller forces the result.
+// T is inferred from F's declared return type; no implicit heap allocation.
+safe io Lazy[T, F] defer[T: Move, F: safe io fn once() -> T](const F thunk) {
+    return delay(thunk);
+}
+
+safe io void main() {
+    let mut answer = defer(fn() -> uint32 {
+        output(1);
+        return run(Command::Gcd(1071, 462));
+    });
+    const eager uint32 immediate = run(Command::Answer);
+    output(immediate);
+    output(force(uniq mut answer).*);
+    output(force(uniq mut answer).*);
+    output(force_take(answer));
+}

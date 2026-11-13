@@ -1,0 +1,14 @@
+safe wrap uint32 fail() {
+    panic();
+}
+
+safe wrap uint32 later() {
+    output(99);
+    return 99;
+}
+
+safe io void main() {
+    output(1);
+    output(fail() + later());
+    output(2);
+}

@@ -1,0 +1,8 @@
+// Expected rejection: main -> write_value -> output may allocate and block.
+safe void write_value() {
+    output(42);
+}
+
+safe hot void main() {
+    write_value();
+}

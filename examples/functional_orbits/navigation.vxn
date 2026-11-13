@@ -1,0 +1,68 @@
+import common::{Complex};
+
+pub choice Set { Dragon, Dust, Islands }
+pub struct View { Complex center; float64 span; }
+pub struct State { Set selected; bool gallery; View dragon; View dust; View islands; }
+pub choice Action {
+    Select(Set), Gallery, Reset,
+    Pan(Set, float64, float64),
+    Zoom(Set, float64, float64, float64)
+}
+
+pub safe pure hot View home() = View { center = Complex { x = 0.0, y = 0.0 }, span = 3.4 };
+pub safe pure hot State initial() = State {
+    selected = Set::Dragon, gallery = true, dragon = home(), dust = home(), islands = home()
+};
+pub safe pure hot Complex parameter(const Set set) = match set {
+    Set::Dragon -> Complex { x = -0.8, y = 0.156 },
+    Set::Dust -> Complex { x = -0.4, y = 0.6 },
+    Set::Islands -> Complex { x = 0.285, y = 0.01 }
+};
+pub safe pure hot View camera(const State state, const Set set) = match set {
+    Set::Dragon -> state.dragon, Set::Dust -> state.dust, Set::Islands -> state.islands
+};
+safe pure hot State replace(const State state, const Set set, const View view) {
+    mut State next = state;
+    match set {
+        Set::Dragon -> { next.dragon = view; },
+        Set::Dust -> { next.dust = view; },
+        Set::Islands -> { next.islands = view; }
+    }
+    return next;
+}
+pub safe pure hot Complex point(const View view, const float64 x, const float64 y) =
+    Complex { x = view.center.x + x * view.span, y = view.center.y + y * view.span };
+
+safe pure hot View zoom(const View view, const float64 x, const float64 y, const float64 factor) {
+    // Keep the world point underneath the cursor fixed, including at zoom limits.
+    mut float64 span = view.span * factor;
+    if (span < 0.0000000001) { span = 0.0000000001; }
+    if (span > 12.0) { span = 12.0; }
+    return View { center = Complex {
+        x = view.center.x + x * (view.span - span),
+        y = view.center.y + y * (view.span - span)
+    }, span = span };
+}
+
+// Events are values; navigation is a pure state transition, independent of Win32.
+pub safe pure hot State update(const State state, const Action action) {
+    match action {
+        Action::Select(const set) -> {
+            mut State next = state; next.selected = set; next.gallery = false; return next;
+        },
+        Action::Gallery -> { mut State next = state; next.gallery = true; return next; },
+        Action::Reset -> {
+            if (state.gallery) { return initial(); }
+            return replace(state, state.selected, home());
+        },
+        Action::Pan(const set, const x, const y) -> {
+            const View view = camera(state, set);
+            return replace(state, set, View {
+                center = point(view, -x, -y), span = view.span
+            });
+        },
+        Action::Zoom(const set, const x, const y, const factor) -> {
+            return replace(state, set, zoom(camera(state, set), x, y, factor));
+        }
+    }
+}

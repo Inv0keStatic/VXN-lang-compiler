@@ -1,0 +1,32 @@
+import std.deque as deque;
+
+safe io void inserted(const VecInsert[uint32] result) {
+    match result {
+        VecInsert[uint32]::Ok -> {},
+        _ -> panic()
+    }
+}
+
+safe io void removed(const VecPop[uint32] result) {
+    match result {
+        VecPop[uint32]::Some(const value) -> output(value),
+        VecPop[uint32]::Empty -> output(0)
+    }
+}
+
+safe io void main() {
+    match deque::create[uint32]() {
+        deque::DequeResult[uint32]::Ok(mut queue) -> {
+            inserted(deque::push_back(uniq mut queue, 2));
+            inserted(deque::push_front(uniq mut queue, 1));
+            inserted(deque::push_back(uniq mut queue, 3));
+            output(deque::size(ref queue));
+            output(deque::view(ref queue)[1]);
+            removed(deque::pop_front(uniq mut queue));
+            removed(deque::pop_back(uniq mut queue));
+            removed(deque::pop_front(uniq mut queue));
+            removed(deque::pop_front(uniq mut queue));
+        },
+        deque::DequeResult[uint32]::Err(_) -> panic()
+    }
+}

@@ -1,0 +1,18 @@
+// Borrowed equality for keys. This declares an operation, not algebraic proofs.
+pub constraint Equal[T: Move] {
+    safe pure hot bool equal(const ref T left, const ref T right);
+}
+
+impl Equal[bool] { safe pure hot bool equal(const ref bool left, const ref bool right) = left.* == right.*; }
+impl Equal[uint32] { safe pure hot bool equal(const ref uint32 left, const ref uint32 right) = left.* == right.*; }
+impl Equal[wrap uint32] { safe pure hot bool equal(const ref wrap uint32 left, const ref wrap uint32 right) = left.* == right.*; }
+impl Equal[sint32] { safe pure hot bool equal(const ref sint32 left, const ref sint32 right) = left.* == right.*; }
+impl Equal[wrap sint32] { safe pure hot bool equal(const ref wrap sint32 left, const ref wrap sint32 right) = left.* == right.*; }
+impl Equal[uint64] { safe pure hot bool equal(const ref uint64 left, const ref uint64 right) = left.* == right.*; }
+impl Equal[wrap uint64] { safe pure hot bool equal(const ref wrap uint64 left, const ref wrap uint64 right) = left.* == right.*; }
+impl Equal[sint64] { safe pure hot bool equal(const ref sint64 left, const ref sint64 right) = left.* == right.*; }
+impl Equal[wrap sint64] { safe pure hot bool equal(const ref wrap sint64 left, const ref wrap sint64 right) = left.* == right.*; }
+impl Equal[String] {
+    safe pure hot bool equal(const ref String left, const ref String right) =
+        str_equal(string_view(left), string_view(right));
+}

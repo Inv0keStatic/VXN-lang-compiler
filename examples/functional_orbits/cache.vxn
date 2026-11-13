@@ -1,0 +1,225 @@
+import common::{Complex};
+import progressive::{Sample, begin, advance, color};
+import navigation::{Set, View, State, initial, camera, parameter, point};
+import sampling;
+
+pub struct Entry {
+    Canvas image;
+    Vec[Sample] samples;
+    State state;
+    bool valid;
+    wrap uint64 used;
+    wrap uint32 phase;
+    wrap uint32 chunk;
+    wrap uint32 cursor;
+    wrap uint32 limit;
+    wrap uint32 completed;
+    bool preview;
+    bool pending;
+    bool settled;
+}
+pub struct Cache { Entry[4] entries; wrap uint32 current; wrap uint64 clock; }
+struct Source { Canvas image; State state; bool valid; }
+
+safe void gfx(const GfxResult result) {
+    match result { GfxResult::Ok -> {}, _ -> panic() }
+}
+safe void allocated(const AllocResult result) {
+    match result { AllocResult::Ok -> {}, _ -> panic() }
+}
+safe Entry empty() {
+    const Canvas image = match canvas_create(960, 540) { CanvasOpen::Ok(const value) -> value, _ -> panic() };
+    let const samples = match vec_new[Sample]() { VecResult[Sample]::Ok(const value) -> value, _ -> panic() };
+    return Entry { image = image, samples = samples, state = initial(), valid = false, used = 0,
+        phase = 0, chunk = 0, cursor = 0, limit = 180, completed = 0,
+        preview = true, pending = false, settled = false };
+}
+pub safe io Cache create() = Cache { entries = {empty(), empty(), empty(), empty()}, current = 0, clock = 0 };
+pub safe io void close(const ref Cache cache) {
+    for (mut wrap uint32 i = 0; i < 4; i++) { gfx(canvas_close(cache.*.entries[i].image)); }
+}
+pub safe pure hot bool same_set(const Set a, const Set b) = match a {
+    Set::Dragon -> match b { Set::Dragon -> true, _ -> false },
+    Set::Dust -> match b { Set::Dust -> true, _ -> false },
+    Set::Islands -> match b { Set::Islands -> true, _ -> false }
+};
+pub safe pure hot bool same_view(const View a, const View b) =
+    a.span == b.span && a.center.x == b.center.x && a.center.y == b.center.y;
+pub safe pure hot bool same_image(const State a, const State b) {
+    if (a.gallery != b.gallery) { return false; }
+    if (a.gallery) {
+        return same_view(a.dragon, b.dragon) && same_view(a.dust, b.dust) && same_view(a.islands, b.islands);
+    }
+    return same_set(a.selected, b.selected) && same_view(camera(a, a.selected), camera(b, b.selected));
+}
+safe pure hot wrap uint32 left_edge(const Set set) = match set {
+    Set::Dragon -> 0, Set::Dust -> 320, Set::Islands -> 640
+};
+safe pure hot Set panel(const State state, const wrap uint32 x) {
+    if (!state.gallery) { return state.selected; }
+    return match x { const n if n < 320 -> Set::Dragon, const n if n < 640 -> Set::Dust, _ -> Set::Islands };
+}
+safe pure hot Complex position(const State state, const wrap uint32 x, const wrap uint32 y) {
+    const Set set = panel(state, x);
+    const float64 width = match state.gallery { true -> 320.0, false -> 960.0 };
+    const float64 left = match state.gallery { true -> cast[float64](left_edge(set)), false -> 0.0 };
+    const float64 divisor = match state.gallery { true -> 320.0, false -> 540.0 };
+    return point(camera(state, set), (cast[float64](x) + 0.5 - left - width * 0.5) / divisor,
+        (cast[float64](y) + 0.5 - 270.0) / divisor);
+}
+safe void paint(const Canvas image, const Canvas target, const wrap uint32 x, const wrap uint32 y,
+                const wrap uint32 block, const Color value) {
+    const wrap uint32 width = match x + block > 960 { true -> 960 - x, false -> block };
+    const wrap uint32 height = match y + block > 540 { true -> 540 - y, false -> block };
+    gfx(draw_rectangle(image, narrow[wrap sint32](x), narrow[wrap sint32](y), width, height, value));
+    gfx(draw_rectangle(target, narrow[wrap sint32](x), 88 + narrow[wrap sint32](y), width, height, value));
+}
+safe Color pixel(const Canvas image, const wrap uint32 x, const wrap uint32 y) =
+    match canvas_read_pixel(image, narrow[wrap sint32](x), narrow[wrap sint32](y)) {
+        PixelRead::Ok(const value) -> value, _ -> panic()
+    };
+safe void restore(const Canvas image, const Canvas target) {
+    gfx(canvas_copy(target, image, 0, 88));
+}
+safe Source source(const ref Cache cache, const Set set, const wrap uint32 excluded) {
+    mut Source result = Source { image = cache.*.entries[0].image, state = initial(), valid = false };
+    mut wrap uint64 newest = 0;
+    for (mut wrap uint32 i = 0; i < 4; i++) {
+        if (i != excluded && cache.*.entries[i].valid && cache.*.entries[i].used > newest) {
+            const State state = cache.*.entries[i].state;
+            if (state.gallery || same_set(state.selected, set)) {
+                result = Source { image = cache.*.entries[i].image, state = state, valid = true };
+                newest = cache.*.entries[i].used;
+            }
+        }
+    }
+    return result;
+}
+// Reproject cached colors only as a preview. Rounding, scaling, and fractal
+// sensitivity make these unsuitable for populating the new orbit samples.
+safe bool reproject(const Source old, const State state, const Set set, const Canvas image, const Canvas target) {
+    if (!old.valid) { return false; }
+    const View previous = camera(old.state, set);
+    const View view = camera(state, set);
+    const wrap uint32 left = match state.gallery { true -> left_edge(set), false -> 0 };
+    const wrap uint32 width = match state.gallery { true -> 320, false -> 960 };
+    const float64 divisor = match state.gallery { true -> 320.0, false -> 540.0 };
+    const wrap uint32 old_left = match old.state.gallery { true -> left_edge(set), false -> 0 };
+    const float64 old_width = match old.state.gallery { true -> 320.0, false -> 960.0 };
+    const float64 old_divisor = match old.state.gallery { true -> 320.0, false -> 540.0 };
+    const float64 scale = view.span / previous.span * old_divisor / divisor;
+    const float64 offset_x = (view.center.x - previous.center.x) / previous.span * old_divisor + old_width * 0.5;
+    const float64 offset_y = (view.center.y - previous.center.y) / previous.span * old_divisor + 270.0;
+    mut bool reused = false;
+    for (mut wrap uint32 y = 0; y < 540; y += 4) {
+        const float64 sy = offset_y + (cast[float64](y) + 0.5 - 270.0) * scale;
+        if (sy >= 0.0 && sy < 540.0) {
+            for (mut wrap uint32 x = 0; x < width; x += 4) {
+                const float64 sx = offset_x + (cast[float64](x) + 0.5 - cast[float64](width) * 0.5) * scale;
+                if (sx >= 0.0 && sx < old_width) {
+                    paint(image, target, left + x, y, 4, pixel(old.image, old_left + narrow[wrap uint32](sx), narrow[wrap uint32](sy)));
+                    reused = true;
+                }
+            }
+        }
+    }
+    return reused;
+}
+// An exact hit restores both the image and its pending work, even if navigation
+// interrupted the first pass. Inactive cameras do no work.
+pub safe io bool select(const uniq mut Cache cache, const Canvas target, const State state) {
+    cache.*.clock++;
+    mut wrap uint32 index = 4;
+    mut wrap uint32 victim = 0;
+    for (mut wrap uint32 i = 0; i < 4; i++) {
+        if (cache.*.entries[i].valid && same_image(cache.*.entries[i].state, state)) { index = i; }
+        if (cache.*.entries[i].used < cache.*.entries[victim].used) { victim = i; }
+    }
+    if (index < 4) {
+        cache.*.current = index;
+        cache.*.entries[index].used = cache.*.clock;
+        restore(cache.*.entries[index].image, target);
+        return true;
+    }
+    const Source dragon = source(ref cache.*, Set::Dragon, victim);
+    const Source dust = source(ref cache.*, Set::Dust, victim);
+    const Source islands = source(ref cache.*, Set::Islands, victim);
+    cache.*.current = victim;
+    cache.*.entries[victim].state = state;
+    cache.*.entries[victim].valid = true;
+    cache.*.entries[victim].used = cache.*.clock;
+    cache.*.entries[victim].phase = 0;
+    cache.*.entries[victim].chunk = 0;
+    cache.*.entries[victim].cursor = 0;
+    cache.*.entries[victim].limit = 180;
+    cache.*.entries[victim].completed = 0;
+    cache.*.entries[victim].pending = false;
+    cache.*.entries[victim].settled = false;
+    vec_clear(uniq mut cache.*.entries[victim].samples);
+    allocated(vec_reserve(uniq mut cache.*.entries[victim].samples, 518400));
+    const Canvas image = cache.*.entries[victim].image;
+    // A cheap fallback also fills newly exposed areas outside cached images.
+    for (mut wrap uint32 y = 0; y < 540; y += 32) {
+        for (mut wrap uint32 x = 0; x < 960; x += 32) {
+            const Sample sample = advance(begin(position(state, x, y)), parameter(panel(state, x)), 180);
+            paint(image, target, x, y, 32, color(sample));
+        }
+    }
+    mut bool reused = false;
+    if (state.gallery || same_set(state.selected, Set::Dragon)) { reused = reproject(dragon, state, Set::Dragon, image, target) || reused; }
+    if (state.gallery || same_set(state.selected, Set::Dust)) { reused = reproject(dust, state, Set::Dust, image, target) || reused; }
+    if (state.gallery || same_set(state.selected, Set::Islands)) { reused = reproject(islands, state, Set::Islands, image, target) || reused; }
+    cache.*.entries[victim].preview = !reused;
+    return false;
+}
+pub safe io bool settled(const ref Cache cache) = cache.*.entries[cache.*.current].settled;
+pub safe io wrap uint32 completed(const ref Cache cache) = cache.*.entries[cache.*.current].completed;
+pub safe io wrap uint32 phase(const ref Cache cache) = cache.*.entries[cache.*.current].phase;
+
+// Visit the same Bayer/chunk order each round, so samples can be appended on
+// the first pass without a blocking half-million-element initialization.
+safe void step(const uniq mut Entry entry, const Canvas target) {
+    const State state = entry.*.state;
+    const bool preview = entry.*.preview;
+    const bool first = entry.*.completed == 0;
+    const wrap uint32 first_x = match preview { true -> 0, false -> sampling::column(entry.*.phase) };
+    const wrap uint32 first_y = sampling::row_group(entry.*.chunk) * 8 + match preview { true -> 0, false -> sampling::row(entry.*.phase) };
+    for (mut wrap uint32 y = first_y; y < 540; y += 128) {
+        for (mut wrap uint32 x = first_x; x < 960; x += 8) {
+            const Sample old = match preview || first {
+                true -> begin(position(state, x, y)),
+                false -> vec_slice(ref entry.*.samples)[entry.*.cursor]
+            };
+            if (preview || first || !old.escaped) {
+                const Sample next = advance(old, parameter(panel(state, x)), entry.*.limit);
+                if (!preview) {
+                    if (first) { allocated(vec_push(uniq mut entry.*.samples, next)); }
+                    else { vec_uniq(uniq mut entry.*.samples)[entry.*.cursor] = next; }
+                    if (!next.escaped) { entry.*.pending = true; }
+                }
+                if (preview || first || next.escaped) {
+                    paint(entry.*.image, target, x, y, match preview { true -> 8, false -> 1 }, color(next));
+                }
+            }
+            if (!preview) { entry.*.cursor++; }
+        }
+    }
+    entry.*.chunk++;
+    if (entry.*.chunk == 16) {
+        entry.*.chunk = 0;
+        if (preview) { entry.*.preview = false; }
+        else { entry.*.phase++; }
+    }
+    if (entry.*.phase == 64) {
+        entry.*.completed = entry.*.limit;
+        if (!entry.*.pending || entry.*.limit == 4294967280) { entry.*.settled = true; }
+        else {
+            entry.*.limit = match entry.*.limit > 4294967100 { true -> 4294967280, false -> entry.*.limit + 180 };
+            entry.*.phase = 0; entry.*.cursor = 0; entry.*.pending = false;
+        }
+    }
+}
+pub safe io void refine(const uniq mut Cache cache, const Canvas target) {
+    const wrap uint32 index = cache.*.current;
+    if (!cache.*.entries[index].settled) { step(uniq mut cache.*.entries[index], target); }
+}

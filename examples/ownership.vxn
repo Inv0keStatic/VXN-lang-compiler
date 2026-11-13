@@ -1,0 +1,22 @@
+choice Answer { Ok(uint32), Err(AllocError) }
+
+safe nopanic uint32 inspect(const ref Box[uint32] owner) {
+    return box_ref(owner).*;
+}
+
+safe nopanic Box[uint32] transfer(const Box[uint32] owner) {
+    return owner;
+}
+
+safe nopanic Answer work() {
+    const Box[uint32] first = box_new[uint32](42)?;
+    const Box[uint32] second = transfer(first);
+    return Answer::Ok(inspect(ref second));
+}
+
+safe io nopanic void main() {
+    match work() {
+        Answer::Ok(const value) -> output(value),
+        Answer::Err(const error) -> output(false)
+    }
+}

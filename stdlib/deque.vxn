@@ -1,0 +1,44 @@
+// A contiguous deque. Back operations reuse Vec; front edits shift elements.
+// Fields are public under the current module rules. No additional invariant is
+// required beyond Vec's checked length, capacity and ownership invariants.
+pub struct Deque[T] { Vec[T] values; }
+pub choice DequeResult[T] { Ok(Deque[T]), Err(AllocError) }
+
+pub safe io nopanic DequeResult[T] create[T: Move]() {
+    return match vec_new[T]() {
+        VecResult[T]::Ok(const values) -> DequeResult[T]::Ok(Deque[T] { values = values }),
+        VecResult[T]::Err(const error) -> DequeResult[T]::Err(error)
+    };
+}
+
+pub safe pure hot wrap uint32 size[T: Move](const ref Deque[T] deque) =
+    vec_len(ref deque.*.values);
+
+pub safe pure hot wrap uint32 capacity[T: Move](const ref Deque[T] deque) =
+    vec_capacity(ref deque.*.values);
+
+pub safe pure hot Slice[T] view[T: Move](const ref Deque[T] deque) from(deque) =
+    vec_slice(ref deque.*.values);
+
+pub safe io nopanic AllocResult reserve[T: Move](const uniq mut Deque[T] deque,
+                                               const wrap uint32 additional) =
+    vec_reserve(uniq mut deque.*.values, additional);
+
+pub safe io nopanic VecInsert[T] push_back[T: Move](const uniq mut Deque[T] deque,
+                                                  const T value) {
+    const wrap uint32 index = vec_len(ref deque.*.values);
+    return vec_insert(uniq mut deque.*.values, index, value);
+}
+
+pub safe io nopanic VecInsert[T] push_front[T: Move](const uniq mut Deque[T] deque,
+                                                   const T value) =
+    vec_insert(uniq mut deque.*.values, 0, value);
+
+pub safe io nopanic VecPop[T] pop_back[T: Move](const uniq mut Deque[T] deque) =
+    vec_pop(uniq mut deque.*.values);
+
+pub safe io nopanic VecPop[T] pop_front[T: Move](const uniq mut Deque[T] deque) =
+    vec_remove(uniq mut deque.*.values, 0);
+
+pub safe io nopanic void clear[T: Move](const uniq mut Deque[T] deque) =
+    vec_clear(uniq mut deque.*.values);

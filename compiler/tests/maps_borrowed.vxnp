@@ -1,0 +1,4 @@
+package maps_borrowed_test
+module app = "maps_borrowed.vxn"
+module std.equal = "../../stdlib/equal.vxn"
+module std.map = "../../stdlib/map.vxn"
